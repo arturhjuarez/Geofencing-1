@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoTracker - Registro</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* Ajuste específico para que el cuadro de registro sea más ancho */
+        .register-card {
+            width: 500px; /* Más ancho que el login que tenía 350px */
+            padding: 2.5rem;
+        }
+        /* Organizar los campos en dos columnas si lo deseas, o mantenerlos en lista */
+        .input-group input {
+            width: 100%;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <div id="particles-js"></div>
+    <div class="overlay"></div> 
+    <main class="main-content">
+        
+
+        <div class="login-card register-card">
+            <h2>Crear Cuenta</h2>
+            <form id="registerForm">
+                <div class="input-group">
+                    <input type="text" id="reg-nombre" placeholder="Nombre(s)" required>
+                </div>
+                <div class="input-group">
+                    <input type="text" id="reg-paterno" placeholder="Apellido Paterno" required>
+                </div>
+                <div class="input-group">
+                    <input type="text" id="reg-materno" placeholder="Apellido Materno" required>
+                </div>
+                <div class="input-group">
+                    <input type="tel" id="reg-tel" placeholder="Número Telefónico" required>
+                </div>
+                <div class="input-group">
+                    <input type="email" id="reg-email" placeholder="Correo electrónico" required>
+                </div>
+                <div class="input-group">
+                    <input type="password" id="reg-password" placeholder="Contraseña" required>
+                </div>
+                
+                <button type="submit" class="btn-main">Registrarme</button>
+            </form>
+
+            <div id="msg" class="message"></div>
+
+            <div class="footer-links">
+                <p>¿Ya tienes cuenta? <a href="/">Inicia sesión aquí</a></p>
+            </div>
+        </div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+    <script src="{{ url_for('static', filename='particles-config.js') }}"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</body>
+</html>

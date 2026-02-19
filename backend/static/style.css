@@ -1,0 +1,121 @@
+body {
+    margin: 0;
+    height: 100vh;
+    background-color: #000; 
+    
+    
+    background-image: 
+        radial-gradient(
+            circle, 
+            rgba(0,0,0,0) 0%,   /* centro transparente */
+            rgba(0,0,0,0) 40%,  /* brillo 40% */
+            rgba(0,0,0,0.6) 50%, /* Empieza a oscurecer suavemente */
+            rgba(0,0,0,1) 95%    /* Negro total solo en la orilla extrema */
+        ),
+        url('img/Fondo_Geo7.png'); 
+
+    background-size: 80% auto; 
+    background-position: center 40%; 
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    
+    /* Tipografía y Alineación del contenido (Login) */
+    font-family: 'Segoe UI', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    overflow: hidden; /* Evita scrolls innecesarios */
+
+    display: flex;
+    justify-content: center;
+    align-items: flex-start; /* Empieza arriba */
+    padding-top: 5vh; /* Subir bloque */
+
+}
+
+/* --- CONTENEDOR PRINCIPAL --- */
+.main-content {
+    z-index: 2;
+    text-align: center;
+    width: 100%;
+    max-width: 400px;
+}
+
+/* --- TÍTULO Y CURSOR --- */
+.header {
+    margin-bottom: 25px;
+}
+
+#typewriter-text {
+    font-size: 5rem; 
+    display: inline;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.7); /* Brillo */
+    font-weight: bold; 
+    color: white;
+}
+
+/* --- TARJETA DE LOGIN  --- */
+.login-card {
+    width: 100%;
+    max-width: 380px; /* compacto */
+    padding: 20px 30px; 
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px);
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.login-card h2 {
+    margin: 0 0 20px 0; /* Elimina margen superior para que suba */
+    font-size: 1.8rem;
+    font-weight: 500;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 5px;
+    color: white;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.btn-main {
+    width: 100%;
+    padding: 12px;
+    background: white;
+    color: black;
+    border: none;
+    border-radius: 5px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.btn-main:hover {
+    background: #ccc;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+}
+
+.footer-links a {
+    color: #00d4ff;
+    text-decoration: none;
+    text-decoration: underline;
+    text-decoration-color: #00d4ff; 
+    text-decoration-thickness: 2px;
+}
+
+#particles-js {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    z-index: -1;
+    background-color: #000000; 
+}

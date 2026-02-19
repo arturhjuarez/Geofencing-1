@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoTracker Pro - Simulador Controlado</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    
+    <style>
+        /* --- ESTILOS GENERALES --- */
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; background-color: #121212; overflow: hidden; }
+        
+        #map { height: 100vh; width: 100vw; z-index: 1; } 
+
+        /* --- SIDEBAR --- */
+        #menu-toggle {
+            position: absolute; top: 20px; left: 20px; z-index: 3000;
+            background-color: #1e1e1e; color: white; border: none; padding: 10px 15px;
+            border-radius: 8px; cursor: pointer; font-size: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: background 0.3s;
+        }
+        #menu-toggle:hover { background-color: #333; }
+
+        #sidebar {
+            position: fixed; top: 0; left: -320px; width: 280px; height: 100%;
+            background-color: rgba(30, 30, 30, 0.95); backdrop-filter: blur(10px);
+            box-shadow: 4px 0 15px rgba(0,0,0,0.5); transition: left 0.4s ease;
+            z-index: 2000; padding: 80px 20px 20px 20px; color: white;
+            display: flex; flex-direction: column;
+        }
+        #sidebar.active { left: 0; }
+
+        h2 { margin-top: 0; color: #00bcd4; font-size: 22px; margin-bottom: 5px; }
+        p { font-size: 13px; color: #aaa; margin-bottom: 25px; }
+        
+        .btn { width: 100%; padding: 12px; margin-bottom: 10px; border: none; cursor: pointer; border-radius: 8px; font-weight: bold; transition: transform 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px;}
+        .btn:active { transform: scale(0.98); }
+        
+        .btn-draw { background: linear-gradient(45deg, #9c27b0, #673ab7); color: white; }
+        .btn-sim { background: linear-gradient(45deg, #00bcd4, #0288d1); color: white; } 
+        /* Nuevo botón de Stop */
+        .btn-stop { background: #e91e63; color: white; margin-top: -5px; font-size: 13px; }
+        
+        .btn-save { background: linear-gradient(45deg, #28a745, #1e7e34); color: white; display: none; }
+        .btn-clear { background: #343a40; color: #ff6b6b; margin-top: auto; border: 1px solid #ff6b6b; }
+        .btn-logout { background: transparent; color: #aaa; border: 1px solid #555; }
+        .btn-logout:hover { background: #333; color: white; }
+
+        /* --- ALERTA --- */
+        #alert-box {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            padding: 12px 30px; border-radius: 50px; font-weight: bold; font-size: 16px;
+            z-index: 1000; color: white; background: #28a745; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3); transition: all 0.3s ease;
+            display: flex; align-items: center; gap: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <button id="menu-toggle" onclick="toggleMenu()">☰</button>
+
+    <div id="sidebar">
+        <h2>📍 GeoTracker Pro</h2>
+        <p>Panel de Control</p>
+        
+        <div style="background:#252526; padding:10px; border-radius:8px; margin-bottom:20px;">
+            <div style="font-size:12px; color:#aaa;">Estado del Sistema:</div>
+            <div id="app-status" style="font-size:13px; font-weight:bold; color: white; margin-top: 5px;">
+                En espera...
+            </div>
+        </div>
+
+        <button class="btn btn-draw" onclick="startDrawing()">✏️ Dibujar Zona</button>
+        <button id="btn-save" class="btn btn-save" onclick="saveCurrentZone()">💾 Guardar Zona</button>
+        
+        <button class="btn btn-sim" onclick="startSimulationSetup()">🏃‍♂️ Simular Ruta</button>
+        <button class="btn btn-stop" onclick="stopSimulation()">🛑 Detener / Borrar Ruta</button>
+        
+        <button class="btn btn-clear" onclick="clearAllZones()">🗑️ Borrar Mis Zonas</button>
+        <button class="btn btn-logout" onclick="window.location.href='/'">Cerrar Sesión</button>
+    </div>
+
+    <div id="map"></div>
+    <div id="alert-box"><span>🛡️</span> <span>SISTEMA SEGURO</span></div>
+
+    <script>
+        const socket = io();
+        const map = L.map('map').setView([19.4326, -99.1332], 13);
+        
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; CARTO'
+        }).addTo(map);
+
+        function toggleMenu() { document.getElementById('sidebar').classList.toggle('active'); }
+        function closeMenu() { document.getElementById('sidebar').classList.remove('active'); }
+        function updateStatus(msg) { document.getElementById('app-status').innerText = msg; }
+
+        // --- ZONAS FIJAS ---
+        L.polygon([[19.4340, -99.1352], [19.4340, -99.1314], [19.4315, -99.1314], [19.4315, -99.1352]], {color: '#ff4444', fillOpacity: 0.15}).addTo(map).bindPopup("🚫 Zócalo");
+        L.polygon([[19.3310, -99.1153], [19.3310, -99.1103], [19.3260, -99.1103], [19.3260, -99.1153]], {color: '#ffbb33', fillOpacity: 0.15}).addTo(map).bindPopup("🎓 ESIME");
+
+        // --- VARIABLES GLOBALES ---
+        let currentMode = 'IDLE'; 
+        let drawnPoints = [];
+        let tempMarkers = [];
+        let tempPolygon = null; 
+        let customPolygonsLayer = L.layerGroup().addTo(map);
+
+        // Variables de Simulación
+        let simStart = null;
+        let simEnd = null;
+        let simMarkerStart = null;
+        let simPolyline = null; // Línea visual de la ruta
+        let simInterval = null; // El "reloj" de la simulación
+
+        // --- LÓGICA DE SIMULACIÓN (AJUSTADA) ---
+
+        function startSimulationSetup() {
+            stopSimulation(); // Limpiar cualquier simulación anterior
+            currentMode = 'SIMULATING';
+            closeMenu();
+            updateStatus("SIMULADOR: Haz clic para marcar INICIO (A)");
+            map.getContainer().style.cursor = 'crosshair';
+        }
+
+        function stopSimulation() {
+            // 1. Detener el reloj
+            if (simInterval) clearInterval(simInterval);
+            
+            // 2. Limpiar visuales
+            if (simPolyline) map.removeLayer(simPolyline);
+            if (simMarkerStart) map.removeLayer(simMarkerStart);
+            
+            // 3. Resetear variables
+            simStart = null;
+            simEnd = null;
+            simPolyline = null;
+            simMarkerStart = null;
+            currentMode = 'IDLE';
+            map.getContainer().style.cursor = 'grab';
+            updateStatus("Simulación detenida.");
+        }
+
+        function runSimulation() {
+            if (!simStart || !simEnd) return;
+
+            // --- CONFIGURACIÓN DE VELOCIDAD ---
+            const steps = 200;
+            const duration = 40000; 
+            const stepTime = duration / steps;
+            
+            let currentStep = 0;
+            const latStep = (simEnd.lat - simStart.lat) / steps;
+            const lngStep = (simEnd.lng - simStart.lng) / steps;
+
+            updateStatus("Bot caminador en simulación...");
+
+            if (simInterval) clearInterval(simInterval);
+
+            simInterval = setInterval(() => {
+                currentStep++;
+
+                const newLat = simStart.lat + (latStep * currentStep);
+                const newLng = simStart.lng + (lngStep * currentStep);
+
+                // Enviar al servidor
+                sendFakeLocation(newLat, newLng);
+
+                if (currentStep >= steps) {
+                    clearInterval(simInterval);
+                    updateStatus("✅ Destino alcanzado.");
+                }
+            }, stepTime);
+        }
+
+        async function sendFakeLocation(lat, lng) {
+            try {
+                await fetch('/api/update_location', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        lat: lat,
+                        lng: lng,
+                        device_id: 'simulador_bot',
+                        alias: '🤖 Bot Lento'
+                    })
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        // --- MANEJADOR DE CLICS (ROUTER) ---
+        map.on('click', function(e) {
+            
+            if (currentMode === 'DRAWING') {
+                // ... Lógica de dibujo (igual que antes) ...
+                const lat = e.latlng.lat;
+                const lng = e.latlng.lng;
+                drawnPoints.push({lat, lng});
+                const marker = L.circleMarker([lat, lng], {color: '#d05ce3', radius: 4}).addTo(map);
+                tempMarkers.push(marker);
+
+                if (drawnPoints.length > 2) {
+                    if (tempPolygon) map.removeLayer(tempPolygon);
+                    tempPolygon = L.polygon(drawnPoints.map(p => [p.lat, p.lng]), {color: '#d05ce3', dashArray: '5, 5'}).addTo(map);
+                    document.getElementById('btn-save').style.display = 'block';
+                    document.getElementById('sidebar').classList.add('active'); 
+                    updateStatus("Zona cerrada. ¡Guárdala!");
+                }
+            }
+            else if (currentMode === 'SIMULATING') {
+                if (!simStart) {
+                    simStart = e.latlng;
+                    simMarkerStart = L.marker(simStart, {
+                        icon: L.divIcon({className: 'sim-icon', html: '🚩', iconSize: [30, 30]})
+                    }).addTo(map);
+                    updateStatus("Inicio marcado. Clic en DESTINO (B)");
+                } else {
+                    simEnd = e.latlng;
+                    currentMode = 'IDLE'; 
+                    map.getContainer().style.cursor = 'grab';
+                    
+                    // Guardamos la línea en variable global para poder borrarla
+                    simPolyline = L.polyline([simStart, simEnd], {color: 'cyan', dashArray: '10, 10', weight: 3}).addTo(map);
+                    
+                    runSimulation();
+                }
+            }
+        });
+
+        // --- FUNCIONES DE DIBUJO ---
+        function startDrawing() {
+            stopSimulation(); // Detener simulación si hay una activa
+            resetTempDrawing();
+            isDrawing = false; // Reset first
+            currentMode = 'DRAWING';
+            closeMenu();
+            updateStatus("Modo Dibujo: Marca puntos...");
+            map.getContainer().style.cursor = 'crosshair';
+        }
+
+        async function saveCurrentZone() {
+            if (drawnPoints.length < 3) return;
+            try {
+                const response = await fetch('/api/add_zone', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ points: drawnPoints })
+                });
+                if (response.ok) {
+                    L.polygon(drawnPoints.map(p => [p.lat, p.lng]), {color: '#9c27b0', fillOpacity: 0.4}).addTo(customPolygonsLayer);
+                    resetTempDrawing();
+                    currentMode = 'IDLE';
+                    updateStatus("Zona guardada con éxito.");
+                    document.getElementById('btn-save').style.display = 'none';
+                    map.getContainer().style.cursor = 'grab';
+                }
+            } catch (error) { alert("Error al guardar"); }
+        }
+
+        async function clearAllZones() {
+            if(!confirm("¿Borrar zonas?")) return;
+            await fetch('/api/clear_zones', {method: 'POST'});
+            customPolygonsLayer.clearLayers();
+            updateStatus("Zonas borradas.");
+        }
+
+        function resetTempDrawing() {
+            drawnPoints = [];
+            tempMarkers.forEach(m => map.removeLayer(m));
+            tempMarkers = [];
+            if (tempPolygon) map.removeLayer(tempPolygon);
+            tempPolygon = null;
+            document.getElementById('btn-save').style.display = 'none';
+        }
+
+        // --- RASTREO (SOCKETS) ---
+        let markers = {}; 
+
+        socket.on('new_location', (data) => {
+            const { lat, lng, alias, device_id } = data;
+            const id = alias || device_id;
+
+            if (markers[id]) {
+                markers[id].setLatLng([lat, lng]).bindPopup(id);
+            } else {
+                if (device_id === 'simulador_bot') {
+                     markers[id] = L.circleMarker([lat, lng], {
+                        color: '#00bcd4', radius: 8, fillOpacity: 1
+                    }).addTo(map).bindPopup("🤖 Bot Lento");
+                } else {
+                    markers[id] = L.marker([lat, lng]).addTo(map).bindPopup(id);
+                }
+            }
+        });
+
+        socket.on('geofence_event', (data) => {
+            const box = document.getElementById('alert-box');
+            let icon = "🛡️";
+            let color = "#28a745"; 
+
+            if (data.status === 'DANGER') { color = "#dc3545"; icon = "🚨"; } 
+            else if (data.status === 'WARNING') { color = "#ffc107"; icon = "⚠️"; }
+
+            box.style.backgroundColor = color;
+            box.style.color = data.status === 'WARNING' ? 'black' : 'white';
+            box.innerHTML = `<span>${icon}</span> <span>${data.message}</span>`;
+            
+            if(data.status === 'DANGER') box.style.boxShadow = "0 0 20px rgba(220, 53, 69, 0.6)";
+            else box.style.boxShadow = "0 5px 15px rgba(0,0,0,0.3)";
+        });
+    </script>
+</body>
+</html>
