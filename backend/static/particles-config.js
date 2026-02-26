@@ -18,11 +18,19 @@ particlesJS("particles-js", {
     }
   },
   "interactivity": {
-    "detect_on": "canvas",
+    "detect_on": "window", // Cambia 'canvas' por 'window'
     "events": {
       "onhover": {
         "enable": true,
-        "mode": "grab" // Las líneas se "pegan" al cursor cuando pasas cerca
+        "mode": "grab" 
+      }
+    },
+    "modes": {
+      "grab": {
+        "distance": 200, // Qué tan lejos llega el brazo del cursor
+        "line_linked": {
+          "opacity": 1
+        }
       }
     }
   },

@@ -1,38 +1,54 @@
 import os
 import re
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, redirect, url_for
 from flask_socketio import SocketIO
 from flask_cors import CORS
 from shapely.geometry import Point, Polygon
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
+#ARTURO
+import pyodbc
 
 app = Flask(__name__)
 CORS(app)
 app.config['SECRET_KEY'] = 'mi_clave_secreta_super_segura!'
 
+import urllib
+
 # --- DB CONFIG ---
-basedir = os.path.abspath(os.path.dirname(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'tracker.db')
+# TIP: El nombre del servidor lo sacas de la ventana de inicio de SSMS 
+# (ej: DESKTOP-XXXX\SQLEXPRESS)
+params = urllib.parse.quote_plus(
+    'DRIVER={ODBC Driver 17 for SQL Server};'
+    'SERVER=R2-D2;' # <--- REEMPLAZA ESTO
+    'DATABASE=GeofencingDB;'
+    'Trusted_Connection=yes;'
+)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = f"mssql+pyodbc:///?odbc_connect={params}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
-
-# --- MODELOS ---
+# --- ARTURO MODELOS ---
 class User(db.Model):
+    __tablename__ = 'Usuarios' # Asegúrate de que coincida con tu tabla en SQL Server
     id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(100))
+    apellido_paterno = db.Column(db.String(100))
+    apellido_materno = db.Column(db.String(100))
+    telefono = db.Column(db.String(20))
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password = db.Column(db.String(60), nullable=False)
+    password = db.Column(db.String(255), nullable=False)
     devices = db.relationship('Device', backref='owner', lazy=True)
 
 class Device(db.Model):
+    __tablename__ = 'Dispositivos' 
     id = db.Column(db.Integer, primary_key=True)
     device_id = db.Column(db.String(50), unique=True, nullable=False)
     alias = db.Column(db.String(50), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-
+    user_id = db.Column(db.Integer, db.ForeignKey('Usuarios.id'), nullable=False)
 # --- ZONAS (GEOCERCAS) ---
 
 # 1. Zonas Fijas
@@ -129,16 +145,36 @@ def update_location():
     socketio.emit('new_location', data)
     return jsonify({"status": "success"})
 
-# --- AUTH (Igual que antes) ---
+# --- ARTURO AUTH (Igual que antes) ---
 @app.route("/api/register", methods=['POST'])
 def register():
-    # (Código Auth Resumido - Usa el mismo de la versión anterior)
     data = request.get_json()
-    if User.query.filter_by(email=data['email']).first(): return jsonify({"msg": "Error"}), 400
+    
+    # Verificamos si el correo ya existe
+    if User.query.filter_by(email=data['email']).first():
+        return jsonify({"message": "El correo ya está registrado"}), 400
+    
+    # Encriptamos la contraseña por seguridad (Fundamental para titulación)
     hashed = bcrypt.generate_password_hash(data['password']).decode('utf-8')
-    db.session.add(User(email=data['email'], password=hashed))
-    db.session.commit()
-    return jsonify({"msg": "Ok"}), 200
+    
+    # Creamos el nuevo usuario con todos los campos del formulario ancho
+    new_user = User(
+        nombre=data.get('nombre'),
+        apellido_paterno=data.get('paterno'),
+        apellido_materno=data.get('materno'),
+        telefono=data.get('telefono'),
+        email=data['email'],
+        password=hashed
+    )
+    
+    try:
+        db.session.add(new_user)
+        db.session.commit()
+        return jsonify({"message": "Usuario creado correctamente"}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error al registrar: {e}")
+        return jsonify({"message": "Error interno del servidor"}), 500
 
 @app.route("/api/login", methods=['POST'])
 def login():
@@ -158,6 +194,15 @@ def link_device():
 def register_view():
     return render_template('register_page.html')
 
+#RUTA AL PERFIL
+@app.route("/profile")
+def profile():
+    return render_template('profile.html')
+
+@app.route("/logout")
+def logout():
+    return redirect(url_for('home'))
+
 if __name__ == "__main__":
-    with app.app_context(): db.create_all()
+    #with app.app_context(): db.create_all()
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)

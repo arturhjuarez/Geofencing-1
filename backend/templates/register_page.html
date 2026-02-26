@@ -28,25 +28,25 @@
             <h2>Crear Cuenta</h2>
             <form id="registerForm">
                 <div class="input-group">
-                    <input type="text" id="reg-nombre" placeholder="Nombre(s)" required>
+                    <input type="text" id="nombre" placeholder="Nombre(s)" required>
                 </div>
                 <div class="input-group">
-                    <input type="text" id="reg-paterno" placeholder="Apellido Paterno" required>
+                    <input type="text" id="paterno" placeholder="Apellido Paterno" required>
                 </div>
                 <div class="input-group">
-                    <input type="text" id="reg-materno" placeholder="Apellido Materno" required>
+                    <input type="text" id="materno" placeholder="Apellido Materno" required>
                 </div>
                 <div class="input-group">
-                    <input type="tel" id="reg-tel" placeholder="Número Telefónico" required>
+                    <input type="tel" id="telefono" placeholder="Número Telefónico" required>
                 </div>
                 <div class="input-group">
-                    <input type="email" id="reg-email" placeholder="Correo electrónico" required>
+                    <input type="email" id="email" placeholder="Correo electrónico" required>
                 </div>
                 <div class="input-group">
-                    <input type="password" id="reg-password" placeholder="Contraseña" required>
+                    <input type="password" id="password" placeholder="Contraseña" required>
                 </div>
                 
-                <button type="submit" class="btn-main">Registrarme</button>
+                <button type="button" class="btn-main" onclick="handleRegister()">Registrarme</button>
             </form>
 
             <div id="msg" class="message"></div>
@@ -59,6 +59,6 @@
     <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
     <script src="{{ url_for('static', filename='particles-config.js') }}"></script>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
-</body>
+
 </body>
 </html>

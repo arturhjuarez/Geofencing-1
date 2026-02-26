@@ -18,20 +18,6 @@ const API_URL = "http://127.0.0.1:5000/api";
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             showMessage("Conectando...", "black");
-//---------------------------------------------------------------------
-            const adminUser = "admin@geotracker.com";
-            const adminPass = "12345";
-
-            if (email === adminUser && password === adminPass) {
-        showMessage("¡Acceso de prueba correcto! Redirigiendo...", "green");
-        
-        localStorage.setItem('user_email', email);
-        
-        setTimeout(() => {
-            window.location.href = "/dashboard"; // Te manda al mapa
-        }, 1000);
-    }
-//--------------------------------------------------------------------
             try {
                 const response = await fetch(`${API_URL}/login`, {
                     method: 'POST',
@@ -45,7 +31,7 @@ const API_URL = "http://127.0.0.1:5000/api";
                     // Guardamos el usuario en el navegador
                     localStorage.setItem('user_email', data.email);
                     setTimeout(() => {
-                        window.location.href = "/dashboard"; // Te manda al mapa
+                        window.location.href = "/profile"; // Te manda al perfil
                     }, 1000);
                 } else {
                     showMessage(data.message, "red");
@@ -55,12 +41,18 @@ const API_URL = "http://127.0.0.1:5000/api";
             }
         }
 
+// -----------FUNCION DE CAPTURA DE DATOS EN REGISTRO------------//        
         async function handleRegister() {
+            const nombre = document.getElementById('nombre').value;
+            const paterno = document.getElementById('paterno').value;
+            const materno = document.getElementById('materno').value;
+            const telefono = document.getElementById('telefono').value;
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             
-            if(!email || !password) {
-                showMessage("Llena ambos campos por favor", "red");
+            // 2. Validación básica
+            if(!nombre || !email || !password) {
+                showMessage("Por favor, llena los campos obligatorios", "red");
                 return;
             }
 
@@ -68,17 +60,27 @@ const API_URL = "http://127.0.0.1:5000/api";
                 const response = await fetch(`${API_URL}/register`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
+                    // 3. Enviamos TODO a Python
+                    body: JSON.stringify({ 
+                        nombre, 
+                        paterno, 
+                        materno, 
+                        telefono, 
+                        email, 
+                        password 
+                    })
                 });
+                
                 const data = await response.json();
 
                 if (response.ok) {
-                    showMessage("¡Cuenta creada! Ahora inicia sesión.", "green");
+                    showMessage("¡Cuenta creada en R2-D2! Redirigiendo...", "green");
+                    setTimeout(() => { window.location.href = "/"; }, 1500);
                 } else {
-                    showMessage("Error: " + data.message, "red");
+                    showMessage("Error: " + (data.message || "No se pudo registrar"), "red");
                 }
             } catch (error) {
-                showMessage("Error al intentar registrar", "red");
+                showMessage("Error de conexión con el servidor", "red");
             }
         }
 
@@ -129,5 +131,38 @@ if (registerForm) {
         } catch (error) {
             showMessage("Error de conexión", "red");
         }
+    });
+}
+
+//-----------------PROFILE----------------------------------------------------------------
+function toggleProfileMenu() {
+    document.getElementById("profileDropdown").classList.toggle("show");
+}
+
+// Cierra el menú si se hace clic fuera de él
+window.onclick = function(event) {
+    if (!event.target.matches('.profile-icon') && !event.target.matches('.round-profile-pic')) {
+        const dropdowns = document.getElementsByClassName("profile-dropdown-content");
+        for (let i = 0; i < dropdowns.length; i++) {
+            const openDropdown = dropdowns[i];
+            if (openDropdown.classList.contains('show')) {
+                openDropdown.classList.remove('show');
+            }
+        }
+    }
+}
+function handleLogout() {
+    localStorage.removeItem('user_email');
+    window.location.href = "/";
+}
+
+function handleSearch() {
+    const query = document.getElementById('global-search').value.toLowerCase();
+    const geofences = document.querySelectorAll('.geofence-item'); // Clase que usaremos en la lista
+
+    geofences.forEach(item => {
+        const text = item.innerText.toLowerCase();
+        // Si el nombre coincide, se muestra; si no, se oculta
+        item.style.display = text.includes(query) ? 'block' : 'none';
     });
 }

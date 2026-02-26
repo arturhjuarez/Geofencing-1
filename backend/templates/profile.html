@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Mi Perfil - GeoTracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div id="particles-js"></div>
+    <div class="overlay"></div>
+
+    <header class="main-header">
+        <div class="header-left">
+            <h2 class="logo-text">GeoTracker</h2>
+        </div>
+
+        <div class="search-bar-container">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="global-search" placeholder="Buscar geocercas..." onkeyup="handleSearch()">
+        </div>
+
+        <div class="profile-menu-container">
+            <div class="profile-icon" onclick="toggleProfileMenu()">
+                <img src="https://via.placeholder.com/40" alt="Perfil" class="round-profile-pic"> 
+            </div>
+            <div id="profileDropdown" class="profile-dropdown-content">
+                <a href="/settings">Configuración</a>
+                <a href="javascript:void(0)" onclick="handleLogout()">Cerrar Sesión</a>
+            </div>
+            <button class="btn-main" onclick="window.location.href='/dashboard'">Ir al Mapa</button>
+        </div>
+    </header>
+    
+    <main class="main-content">
+        </main>
+    <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+    <script src="{{ url_for('static', filename='particles-config.js') }}"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    </body>
+</html>
