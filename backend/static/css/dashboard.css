@@ -1,0 +1,270 @@
+/* --- 1. RESET Y CONFIGURACIÓN BASE --- */
+.dashboard-body {
+    margin: 0;
+    padding: 0;
+    background-color: #000000; /* Fondo negro profundo */
+    color: white;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden; /* Evita scrolls raros */
+}
+
+/* Capas de fondo */
+#particles-js {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.3); /* Oscurece un poco las partículas */
+    z-index: 2;
+    pointer-events: none;
+}
+
+/* --- 2. ESTRUCTURA PRINCIPAL (GRID) --- */
+.dashboard-container {
+    display: grid;
+    grid-template-rows: 80px 1fr; /* Header arriba, contenido abajo */
+    height: 100vh;
+    position: relative;
+    z-index: 10;
+}
+
+/* Header: Logo - Buscador - Perfil */
+.dash-header {
+    display: grid;
+    grid-template-columns: 280px 1fr 100px; 
+    align-items: center;
+    padding: 0 30px;
+    background: rgba(0, 0, 0, 0.5);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Cuerpo: Sidebar - Contenido principal */
+.dash-content {
+    display: grid;
+    grid-template-columns: 280px 1fr; 
+    gap: 20px;
+    padding: 20px;
+    overflow: hidden;
+}
+
+/* --- 3. COMPONENTES DEL HEADER --- */
+.glow-text {
+    font-size: 2.2rem;
+    color: white;
+    text-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
+    margin: 0;
+}
+
+.search-box {
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 30px;
+    padding: 12px 25px;
+    display: flex;
+    align-items: center;
+    max-width: 800px;
+    margin: 0 auto;
+    width: 80%;
+}
+
+#dash-search {
+    background: transparent;
+    border: none;
+    color: white;
+    width: 100%;
+    margin-left: 10px;
+    font-size: 1rem;
+    outline: none;
+}
+
+#dash-search::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.profile-circle {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    border: 2px solid #00f2ff; /* Borde cian neón */
+    overflow: hidden;
+    margin-left: auto;
+    box-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
+}
+
+.profile-circle img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* --- 4. SIDEBAR Y BOTÓN CREAR --- */
+.dash-sidebar {
+    padding: 10px;
+}
+
+.btn-create-neon {
+    background-color: #4CAF50; /* Verde de tu referencia */
+    color: white;
+    border: none;
+    padding: 15px;
+    border-radius: 30px;
+    font-weight: bold;
+    cursor: pointer;
+    width: 100%;
+    font-size: 1rem;
+    box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
+    margin-bottom: 30px;
+    transition: all 0.3s ease;
+}
+
+.btn-create-neon:hover {
+    box-shadow: 0 0 25px rgba(76, 175, 80, 0.8);
+    transform: translateY(-2px);
+}
+
+.side-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Estilo base de los botones (enlaces) */
+.nav-link {
+    color: white; /* Letra blanca obligatoria */
+    text-decoration: none;
+    padding: 12px 20px;
+    display: block;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    font-weight: normal;
+}
+
+/* Efecto al pasar el cursor (Hover) */
+.nav-link:hover {
+    font-weight: bold; /* Poner en negritas */
+    background: rgba(255, 255, 255, 0.1); /* Sombreado sutil */
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.2); /* Brillo neón opcional */
+}
+
+/* Estado seleccionado (Activo) */
+.nav-link.active {
+    font-weight: bold;
+    background: rgba(255, 255, 255, 0.15); /* Sombreado más intenso */
+    border-left: 4px solid white; /* Marca visual para saber cuál está seleccionado */
+    color: white; /* Opcional: un toque de color para el texto activo */
+}
+
+/* --- 5. PANEL DE DATOS (TABLA) --- */
+.dash-view {
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+.data-panel {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    min-height: 80%;
+    padding: 30px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* Estilos de tabla interna */
+.table-header-grid {
+    display: grid;
+    grid-template-columns: 150px 1fr 1fr 1fr; /* Imagen | Nombre | Coords | Fecha */
+    padding: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    color: #00f2ff;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 0.9rem;
+}
+
+/* Menú Desplegable Estilo Dark/Glass */
+.profile-dropdown {
+    display: none;
+    position: absolute;
+    top: 80px;
+    right: 20px;
+    width: 280px;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px);        /* Desenfoque de fondo */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    padding: 25px;
+    text-align: center;
+}
+
+.profile-dropdown.show {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+.user-email { 
+    color: #00f2ff; 
+    font-size: 0.85rem; 
+    margin-bottom: 15px;
+    font-family: 'Courier New', monospace; 
+}
+
+.user-greeting { 
+    color: white; 
+    font-size: 1.1rem; 
+    margin-bottom: 20px; 
+}
+
+/* Botones con estilo Dark */
+.btn-config-dark {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 10px;
+    border-radius: 25px;
+    width: 100%;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.btn-config-dark:hover {
+    background: rgba(0, 242, 255, 0.1);
+    border-color: #00f2ff;
+}
+
+.dropdown-footer {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-logout-dark {
+    background: red; /* Rojo para cerrar sesión */
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 10px;
+    width: 100%;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}

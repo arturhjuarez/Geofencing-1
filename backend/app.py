@@ -1,6 +1,6 @@
 import os
 import re
-from flask import Flask, request, jsonify, render_template, redirect, url_for
+from flask import Flask, request, jsonify, render_template, redirect, url_for, session
 from flask_socketio import SocketIO
 from flask_cors import CORS
 from shapely.geometry import Point, Polygon
@@ -8,10 +8,12 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 #ARTURO
 import pyodbc
+from datetime import timedelta
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, supports_credentials=True, origins=["http://127.0.0.1:5000"])
 app.config['SECRET_KEY'] = 'mi_clave_secreta_super_segura!'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 
 import urllib
 
@@ -70,8 +72,8 @@ CUSTOM_ZONES = []
 @app.route("/")
 def home(): return render_template('login.html')
 
-@app.route("/dashboard")
-def dashboard(): return render_template('index.html')
+@app.route("/map")
+def map(): return render_template('index.html')
 
 # --- API: GESTIÓN DE ZONAS ---
 
@@ -180,9 +182,20 @@ def register():
 def login():
     data = request.get_json()
     user = User.query.filter_by(email=data.get('email')).first()
+    
     if user and bcrypt.check_password_hash(user.password, data.get('password')):
+        # --- ESTO ES LO QUE FALTA PARA ACTIVAR EL MENÚ ---
+        session.permanent = True
+        session.modified = True 
+        session['user_email'] = user.email
+        session['user_name'] = f"{user.nombre} {user.apellido_paterno}"
+        # -------------------------------------------------
+        
+        print(f" Sesión iniciada para: {session['user_name']}") # Ver en terminal
         return jsonify({"message": "Ok", "email": user.email}), 200
+    
     return jsonify({"message": "Bad"}), 401
+
 
 @app.route("/api/link_device", methods=['POST'])
 def link_device():
@@ -197,7 +210,18 @@ def register_view():
 #RUTA AL PERFIL
 @app.route("/profile")
 def profile():
-    return render_template('profile.html')
+    # 1. Verificar sesión
+    user_email = session.get('user_email')
+    user_name = session.get('user_name')
+
+    # 2. DEBUG: Esto imprimirá en tu terminal negra de VS Code
+    print(f"DEBUG: Cargando perfil para {user_email} - {user_name}")
+
+    
+    # 3. Enviar variables con nombres claros al HTML
+    return render_template('profile.html', 
+                           email_html=user_email, 
+                           nombre_html=user_name)
 
 @app.route("/logout")
 def logout():

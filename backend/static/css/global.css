@@ -1,0 +1,34 @@
+/* --- ESTILOS GLOBALES --- */
+body {
+    margin: 0;
+    height: 100vh;
+    background-color: #000000; /* Negro sólido para máximo contraste */
+    
+    /* Tipografía estándar para todo el proyecto */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: white;
+    overflow: hidden; /* Evita que aparezcan barras de scroll por las partículas */
+}
+
+/* --- CAPA DE PARTÍCULAS --- */
+#particles-js {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    z-index: 1; /* Al fondo de todo */
+    background-color: #000000; 
+}
+
+/* --- CAPA DE INTERACCIÓN (OVERLAY) --- */
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2; /* Justo encima de las partículas, debajo del contenido */
+    pointer-events: none; /* Permite que el mouse "atraviese" esta capa y toque las partículas */
+    background: transparent; 
+}

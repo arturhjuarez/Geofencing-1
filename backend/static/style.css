@@ -249,3 +249,98 @@ body {
 #global-search::placeholder {
     color: rgba(255, 255, 255, 0.5);
 }
+
+.dashboard-layout {
+    display: flex;
+    width: 100%;
+    height: calc(100vh - 70px);
+    margin-top: 70px;
+    position: relative;
+    z-index: 10;
+}
+
+/* 2. Sidebar: El panel izquierdo */
+.sidebar {
+    width: 260px;
+    padding: 20px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.btn-new {
+    background: white;
+    color: #3c4043;
+    border: none;
+    padding: 15px 25px;
+    border-radius: 30px;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    cursor: pointer;
+    margin: 0 20px 10px 20px;
+    width: fit-content;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 25px;
+    color: white;
+    text-decoration: none;
+    font-size: 14px;
+    border-radius: 0 20px 20px 0;
+}
+
+.nav-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.nav-item.active {
+    background: rgba(0, 242, 255, 0.2);
+    color: #00f2ff;
+    font-weight: bold;
+}
+
+/* El área principal ahora es oscura y translúcida */
+.content-area {
+    flex: 1;
+    background: rgba(15, 15, 25, 0.7); /* Oscuro con transparencia */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    margin: 20px;
+    padding: 25px;
+    backdrop-filter: blur(10px); /* Efecto de vidrio esmerilado */
+    color: white;
+}
+
+/* La cabecera de la tabla */
+.table-header {
+    display: flex;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    font-weight: bold;
+    color: #00f2ff; /* Color cian neón para los títulos */
+}
+
+.folder-title {
+    font-size: 18px;
+    font-weight: 400;
+}
+
+/* 4. Estilo de la Tabla interna */
+.table-header {
+    display: flex;
+    padding: 12px 15px;
+    border-bottom: 1px solid #ddd;
+    color: #5f6368;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.col-name { flex: 3; }
+.col-owner { flex: 1.5; }
+.col-date { flex: 1.5; }
+.col-actions { width: 50px; }

@@ -3,38 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <title>Mi Perfil - GeoTracker</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
 </head>
-<body>
+<body class="dashboard-body">
     <div id="particles-js"></div>
     <div class="overlay"></div>
 
-    <header class="main-header">
-        <div class="header-left">
-            <h2 class="logo-text">GeoTracker</h2>
-        </div>
-
-        <div class="search-bar-container">
-            <span class="search-icon">🔍</span>
-            <input type="text" id="global-search" placeholder="Buscar geocercas..." onkeyup="handleSearch()">
-        </div>
-
-        <div class="profile-menu-container">
-            <div class="profile-icon" onclick="toggleProfileMenu()">
-                <img src="https://via.placeholder.com/40" alt="Perfil" class="round-profile-pic"> 
+    <div class="dashboard-container">
+        <header class="dash-header">
+            <div class="logo-section">
+                <h1 class="glow-text">Geofencing</h1>
             </div>
-            <div id="profileDropdown" class="profile-dropdown-content">
-                <a href="/settings">Configuración</a>
-                <a href="javascript:void(0)" onclick="handleLogout()">Cerrar Sesión</a>
+            
+            <div class="search-section">
+                <div class="search-box">
+                    <input type="text" placeholder="Buscar..." id="dash-search">
+                </div>
             </div>
-            <button class="btn-main" onclick="window.location.href='/dashboard'">Ir al Mapa</button>
+
+            <div class="user-section">
+                <div class="profile-circle" onclick="toggleProfileMenu()">
+                    <img src="{{ url_for('static', filename='img/nofotodeperfil.png') }}" alt="User">
+                </div>
+
+                <div id="profileDropdown" class="profile-dropdown">
+                    <div class="dropdown-header">
+                        <p class="user-email">{{ email_html if email_html else 'Sin correo' }}</p>
+                        
+                        <div class="large-profile-pic">
+                            <img src="https://via.placeholder.com/80" alt="User Large">
+                        </div>
+                        
+                        <h3 class="user-greeting">¡Hola, {{ nombre_html if nombre_html else 'Usuario' }}!</h3>
+                        
+                        <button class="btn-config-dark" onclick="location.href='/settings'">
+                            ⚙️ Configuración
+                        </button>
+                    </div>
+                    
+                    <div class="dropdown-footer">
+                        <button class="btn-logout-dark" onclick="location.href='/logout'">
+                            Cerrar sesión
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="dash-content">
+            <aside class="dash-sidebar">
+                <button class="btn-create-neon" onclick="window.location.href='/map'">
+                    Crear nueva geocerca
+                </button>
+                
+                <nav class="side-nav">
+                    <a href="#" class="nav-link active">Mis geocercas</a> <a href="#" class="nav-link">Recientes</a>
+                    <a href="#" class="nav-link">Destacados</a>
+                    <a href="#" class="nav-link">Agregar dispositivo</a>
+                    <a href="#" class="nav-link">Papelera</a>
+                </nav>
+            </aside>
+
+            <main class="dash-view">
+                <div class="data-panel">
+                    </div>
+            </main>
         </div>
-    </header>
-    
-    <main class="main-content">
-        </main>
+    </div>
+</body>
     <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
-    <script src="{{ url_for('static', filename='particles-config.js') }}"></script>
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
-    </body>
+    <script src="{{ url_for('static', filename='js/particles-config.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 </html>
