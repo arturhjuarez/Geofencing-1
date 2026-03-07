@@ -10,8 +10,8 @@ function closeMenu() { document.getElementById('sidebar').classList.remove('acti
 function updateStatus(msg) { document.getElementById('app-status').innerText = msg; }
 
 // --- ZONAS FIJAS ---
-L.polygon([[19.4340, -99.1352], [19.4340, -99.1314], [19.4315, -99.1314], [19.4315, -99.1352]], {color: '#ff4444', fillOpacity: 0.15}).addTo(map).bindPopup("🚫 Zócalo");
-L.polygon([[19.3310, -99.1153], [19.3310, -99.1103], [19.3260, -99.1103], [19.3260, -99.1153]], {color: '#ffbb33', fillOpacity: 0.15}).addTo(map).bindPopup("🎓 ESIME");
+//L.polygon([[19.4340, -99.1352], [19.4340, -99.1314], [19.4315, -99.1314], [19.4315, -99.1352]], {color: '#ff4444', fillOpacity: 0.15}).addTo(map).bindPopup("🚫 Zócalo");
+//L.polygon([[19.3310, -99.1153], [19.3310, -99.1103], [19.3260, -99.1103], [19.3260, -99.1153]], {color: '#ffbb33', fillOpacity: 0.15}).addTo(map).bindPopup("🎓 ESIME");
 
 // --- VARIABLES GLOBALES ---
 let currentMode = 'IDLE'; 
@@ -102,11 +102,9 @@ async function sendFakeLocation(lat, lng) {
     } catch (e) { console.error(e); }
 }
 
-// --- MANEJADOR DE CLICS (ROUTER) ---
 map.on('click', function(e) {
     
     if (currentMode === 'DRAWING') {
-        // ... Lógica de dibujo (igual que antes) ...
         const lat = e.latlng.lat;
         const lng = e.latlng.lng;
         drawnPoints.push({lat, lng});
@@ -133,7 +131,6 @@ map.on('click', function(e) {
             currentMode = 'IDLE'; 
             map.getContainer().style.cursor = 'grab';
             
-            // Guardamos la línea en variable global para poder borrarla
             simPolyline = L.polyline([simStart, simEnd], {color: 'cyan', dashArray: '10, 10', weight: 3}).addTo(map);
             
             runSimulation();
@@ -244,16 +241,14 @@ function processCoordinates() {
             points.push(coords);
         });
 
-        // Dibujar el polígono en el mapa automáticamente
         const manualPoly = L.polygon(points, {
             color: '#00bcd4', 
             fillOpacity: 0.3,
             weight: 3
         }).addTo(customPolygonsLayer);
         
-        map.fitBounds(manualPoly.getBounds()); // Hacer zoom al área creada
+        map.fitBounds(manualPoly.getBounds()); 
         
-        // Enviar a la base de datos (Opcional, reutilizando tu lógica)
         drawnPoints = points.map(p => ({lat: p[0], lng: p[1]}));
         saveCurrentZone(); 
 
@@ -264,22 +259,83 @@ function processCoordinates() {
     }
 }
 
-// Función para activar el sombreado blanco y borde izquierdo
 function highlightButton(element) {
-    // 1. Buscamos todos los botones que tengan la clase nav-link
     const links = document.querySelectorAll('.nav-link');
-    
-    // 2. Quitamos la clase 'active' de todos para que no haya varios sombreados
     links.forEach(l => l.classList.remove('active'));
-    
-    // 3. Se la ponemos solo al que presionaste
     if (element) {
         element.classList.add('active');
     }
 }
 
-// Función para limpiar todos los sombreados (útil al detener simulación)
 function resetHighlights() {
     const links = document.querySelectorAll('.nav-link');
     links.forEach(l => l.classList.remove('active'));
 }
+
+//----- GUARDAR LAS GEOCERCAS ---------------------------------------
+// Validar puntos
+function saveCurrentZone() {
+    if (drawnPoints.length < 3) {
+        alert("Error: Se necesitan al menos 3 puntos para formar un área. Por favor, marca más puntos en el mapa.");
+        return; 
+    }
+    document.getElementById('saveModal').style.display = 'flex';
+}
+
+function closeSaveModal() {
+    document.getElementById('saveModal').style.display = 'none';
+    document.getElementById('geoName').value = '';
+}
+
+async function confirmSave() {
+    const name = document.getElementById('geoName').value.trim();
+    
+    if (!name) {
+        alert("Error: Debes ingresar un nombre para la geocerca antes de continuar.");
+        return; 
+    }
+
+    try {
+        const response = await fetch('/api/add_zone', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ 
+                name: name,
+                points: drawnPoints
+            })
+        });
+
+        if (response.ok) {
+            alert(`✅ La geocerca '${name}' se guardó correctamente.`);
+            closeSaveModal();
+            document.getElementById('geoName').value = '';
+            resetTempDrawing();
+        } else {
+            const err = await response.json(); 
+            alert("Detalle del error: " + err.message);
+        }
+    } catch (error) {
+        console.error("Error de conexión:", error);
+    }
+}
+
+window.addEventListener('load', () => {
+    const zonaGuardada = localStorage.getItem('zonaParaDibujar');
+    
+    if (zonaGuardada) {
+        const puntos = JSON.parse(zonaGuardada);
+        
+        const puntosLeaflet = puntos.map(p => [p.lat, p.lng]);
+        
+        const miGeocerca = L.polygon(puntosLeaflet, {
+            color: '#00ffcc', 
+            weight: 3,
+            fillOpacity: 0.3
+        }).addTo(map); 
+        
+
+        map.fitBounds(miGeocerca.getBounds());
+        
+        localStorage.removeItem('zonaParaDibujar');
+    }
+});

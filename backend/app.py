@@ -8,7 +8,10 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 #ARTURO
 import pyodbc
-from datetime import timedelta
+from datetime import timedelta, datetime
+import json
+
+
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True, origins=["http://127.0.0.1:5000"])
@@ -18,8 +21,6 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 import urllib
 
 # --- DB CONFIG ---
-# TIP: El nombre del servidor lo sacas de la ventana de inicio de SSMS 
-# (ej: DESKTOP-XXXX\SQLEXPRESS)
 params = urllib.parse.quote_plus(
     'DRIVER={ODBC Driver 17 for SQL Server};'
     'SERVER=R2-D2;' # <--- REEMPLAZA ESTO
@@ -51,6 +52,22 @@ class Device(db.Model):
     device_id = db.Column(db.String(50), unique=True, nullable=False)
     alias = db.Column(db.String(50), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('Usuarios.id'), nullable=False)
+
+class Geocerca(db.Model):
+    __tablename__ = 'Geocercas' # Coincide con tu tabla de SQL
+    id_geocerca = db.Column(db.Integer, primary_key=True)
+    id_usuario = db.Column(db.Integer, db.ForeignKey('Usuarios.id'), nullable=False)
+    nombre_zona = db.Column(db.String(100), nullable=False)
+    coordenadas_json = db.Column(db.Text, nullable=False)
+    fecha_creacion = db.Column(db.DateTime, default=datetime.now)
+    @property
+    def cantidad_puntos(self):
+        try:
+            # Convierte el texto JSON en una lista y devuelve su tamaño
+            puntos_lista = json.loads(self.coordenadas_json)
+            return len(puntos_lista)
+        except:
+            return 0
 # --- ZONAS (GEOCERCAS) ---
 
 # 1. Zonas Fijas
@@ -76,26 +93,6 @@ def home(): return render_template('login.html')
 def map(): return render_template('index.html')
 
 # --- API: GESTIÓN DE ZONAS ---
-
-@app.route("/api/add_zone", methods=['POST'])
-def add_zone():
-    # Agrega una nueva zona a la lista (sin borrar las anteriores)
-    data = request.get_json()
-    points = data.get('points') 
-    
-    if not points or len(points) < 3:
-        return jsonify({"message": "Faltan puntos"}), 400
-
-    try:
-        coords = [(p['lng'], p['lat']) for p in points]
-        new_poly = Polygon(coords)
-        CUSTOM_ZONES.append(new_poly) # <--- AQUÍ ESTÁ LA MAGIA (APPEND)
-        
-        print(f"📐 Zona #{len(CUSTOM_ZONES)} agregada. Total zonas personalizadas: {len(CUSTOM_ZONES)}")
-        return jsonify({"message": f"Zona {len(CUSTOM_ZONES)} agregada correctamente"}), 200
-    except Exception as e:
-        return jsonify({"message": "Error al procesar"}), 500
-
 @app.route("/api/clear_zones", methods=['POST'])
 def clear_zones():
     # Reinicia la lista
@@ -202,31 +199,113 @@ def link_device():
     # (Usa el código anterior de link_device)
     return jsonify({"msg": "ok"}), 200
 
-#Ruta Registro
+# Ruta Registro
 @app.route('/register-view')
 def register_view():
     return render_template('register_page.html')
 
-#RUTA AL PERFIL
+@app.route("/logout")
+def logout():
+    return redirect(url_for('home'))
+
+# ----- GUARDAR GEOCERCAS -----------
+@app.route("/api/add_zone", methods=['POST'])
+def add_zone():
+    data = request.get_json()
+    nombre = data.get('name')
+    puntos = data.get('points')
+    user_email = session.get('user_email')
+
+    if not user_email:
+        return jsonify({"message": "Sesión no iniciada"}), 401
+
+    import json
+    try:
+        # 1. Buscamos al usuario usando SQLAlchemy (igual que en tu login)
+        user = User.query.filter_by(email=user_email).first()
+        
+        if not user:
+            return jsonify({"message": "Usuario no encontrado"}), 404
+
+        # 2. Creamos la nueva geocerca
+        nueva_zona = Geocerca(
+            id_usuario=user.id,
+            nombre_zona=nombre,
+            coordenadas_json=json.dumps(puntos)
+        )
+
+        # 3. Guardamos en la base de datos R2-D2
+        db.session.add(nueva_zona)
+        db.session.commit()
+        
+        print(f"✅ Éxito: Geocerca '{nombre}' guardada con SQLAlchemy")
+        return jsonify({"message": "Ok"}), 200
+
+    except Exception as e:
+        db.session.rollback() # Por si algo falla, deshacemos el intento
+        print(f"❌ Error en SQLAlchemy: {str(e)}")
+        # Ahora el error real viajará hasta tu navegador
+        return jsonify({"message": str(e)}), 500
+
+# RUTA AL PERFIL (AQUÍ ESTÁ LA VERSIÓN ÚNICA Y CORRECTA)
 @app.route("/profile")
 def profile():
     # 1. Verificar sesión
     user_email = session.get('user_email')
     user_name = session.get('user_name')
 
-    # 2. DEBUG: Esto imprimirá en tu terminal negra de VS Code
-    print(f"DEBUG: Cargando perfil para {user_email} - {user_name}")
+    if not user_email:
+        return redirect(url_for('home'))
 
-    
-    # 3. Enviar variables con nombres claros al HTML
+    # 2. Buscamos al usuario actual en la base de datos
+    user = User.query.filter_by(email=user_email).first()
+
+    # 3. Obtenemos todas las geocercas vinculadas a este usuario
+    if user:
+        mis_zonas = Geocerca.query.filter_by(id_usuario=user.id).all()
+        # Esto imprimirá en tu terminal cuántas encontró para asegurarnos de que funciona
+        print(f"DEBUG: Encontré {len(mis_zonas)} geocercas para {user.nombre}") 
+    else:
+        mis_zonas = []
+
+    # 4. Enviamos TODO al HTML (incluyendo la variable 'geocercas')
     return render_template('profile.html', 
                            email_html=user_email, 
-                           nombre_html=user_name)
+                           nombre_html=user_name,
+                           geocercas=mis_zonas) 
 
-@app.route("/logout")
-def logout():
-    return redirect(url_for('home'))
+# ----- ELIMINAR GEOCERCA -----------
+@app.route("/api/delete_zone/<int:id_zona>", methods=['POST'])
+def delete_zone(id_zona):
+    # 1. Verificamos quién está pidiendo borrar
+    user_email = session.get('user_email')
+    if not user_email:
+        return jsonify({"message": "Sesión no iniciada"}), 401
 
+    try:
+        # 2. Buscamos al usuario
+        user = User.query.filter_by(email=user_email).first()
+        
+        # 3. Buscamos la geocerca. 
+        # IMPORTANTE: Filtramos también por id_usuario por seguridad, 
+        # para que nadie pueda borrar las zonas de otro usuario.
+        zona = Geocerca.query.filter_by(id_geocerca=id_zona, id_usuario=user.id).first()
+        
+        if not zona:
+            return jsonify({"message": "Geocerca no encontrada"}), 404
+
+        # 4. Ejecutamos el DELETE en la base de datos
+        db.session.delete(zona)
+        db.session.commit()
+        
+        print(f"🗑️ Éxito: Geocerca ID {id_zona} eliminada de la base de datos.")
+        return jsonify({"message": "Eliminada correctamente"}), 200
+
+    except Exception as e:
+        db.session.rollback() # Si algo falla, cancelamos la transacción
+        print(f"❌ Error al eliminar: {str(e)}")
+        return jsonify({"message": str(e)}), 500
+
+# --- ESTO SIEMPRE DEBE IR HASTA EL FINAL DEL ARCHIVO ---
 if __name__ == "__main__":
-    #with app.app_context(): db.create_all()
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)

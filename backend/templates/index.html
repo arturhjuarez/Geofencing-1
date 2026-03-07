@@ -60,6 +60,17 @@
             </div>
         </div>
     </div>
+        <div id="saveModal" class="modal-overlay" style="display:none;">
+        <div class="modal-content glass">
+            <h3>💾 Guardar Geocerca</h3>
+            <p>Asigna un nombre para identificar esta zona:</p>
+            <input type="text" id="geoName" placeholder="Ej: Bellas Artes" class="coord-inputs" style="width: 100%; margin: 15px 0;">
+            <div class="modal-buttons">
+                <button class="btn-stop" onclick="closeSaveModal()">Cancelar</button>
+                <button class="btn-sim" onclick="confirmSave()">Guardar</button>
+            </div>
+        </div>
+    </div>
 </body>
     <script src="{{ url_for('static', filename='js/map.js') }}"></script>
 </html>

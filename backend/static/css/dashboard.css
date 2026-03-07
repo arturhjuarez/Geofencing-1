@@ -7,7 +7,7 @@
     font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     height: 100vh;
     width: 100vw;
-    overflow: hidden; /* Evita scrolls raros */
+    overflow: hidden; 
 }
 
 /* Capas de fondo */
@@ -26,7 +26,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.3); /* Oscurece un poco las partículas */
+    background: rgba(0, 0, 0, 0.3); 
     z-index: 2;
     pointer-events: none;
 }
@@ -34,19 +34,19 @@
 /* --- 2. ESTRUCTURA PRINCIPAL (GRID) --- */
 .dashboard-container {
     display: grid;
-    grid-template-rows: 80px 1fr; /* Header arriba, contenido abajo */
+    grid-template-rows: 80px 1fr; 
     height: 100vh;
     position: relative;
     z-index: 10;
 }
 
-/* Header: Logo - Buscador - Perfil */
+
 .dash-header {
     display: grid;
     grid-template-columns: 280px 1fr 100px; 
     align-items: center;
     padding: 0 30px;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 1);
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -151,19 +151,18 @@
     font-weight: normal;
 }
 
-/* Efecto al pasar el cursor (Hover) */
+
 .nav-link:hover {
-    font-weight: bold; /* Poner en negritas */
-    background: rgba(255, 255, 255, 0.1); /* Sombreado sutil */
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.2); /* Brillo neón opcional */
+    font-weight: bold; 
+    background: rgba(255, 255, 255, 0.1); 
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.2); 
 }
 
-/* Estado seleccionado (Activo) */
 .nav-link.active {
     font-weight: bold;
-    background: rgba(255, 255, 255, 0.15); /* Sombreado más intenso */
-    border-left: 4px solid white; /* Marca visual para saber cuál está seleccionado */
-    color: white; /* Opcional: un toque de color para el texto activo */
+    background: rgba(255, 255, 255, 0.15); 
+    border-left: 4px solid white; 
+    color: white; 
 }
 
 /* --- 5. PANEL DE DATOS (TABLA) --- */
@@ -182,10 +181,9 @@
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
-/* Estilos de tabla interna */
 .table-header-grid {
     display: grid;
-    grid-template-columns: 150px 1fr 1fr 1fr; /* Imagen | Nombre | Coords | Fecha */
+    grid-template-columns: 150px 1fr 1fr 1fr; 
     padding: 15px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     color: #00f2ff;
@@ -195,7 +193,6 @@
     font-size: 0.9rem;
 }
 
-/* Menú Desplegable Estilo Dark/Glass */
 .profile-dropdown {
     display: none;
     position: absolute;
@@ -203,7 +200,7 @@
     right: 20px;
     width: 280px;
     background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(12px);        /* Desenfoque de fondo */
+    backdrop-filter: blur(12px);   
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 20px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
@@ -230,7 +227,7 @@
     margin-bottom: 20px; 
 }
 
-/* Botones con estilo Dark */
+
 .btn-config-dark {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.2);
@@ -254,7 +251,7 @@
 }
 
 .btn-logout-dark {
-    background: red; /* Rojo para cerrar sesión */
+    background: red; 
     color: white;
     border: none;
     padding: 10px;
@@ -267,4 +264,238 @@
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(-10px); }
     to { opacity: 1; transform: translateY(0); }
+}
+
+
+
+
+.profile-view {
+    padding-top: 0;
+}
+
+
+.section-title {
+    color: white;
+    margin-top: 0;
+    margin-bottom: 15px;
+    margin-left: 10px;
+    font-size: 24px;
+}
+
+
+.geofence-panel {
+    padding: 0;
+    overflow: hidden; 
+    border-radius: 12px; 
+    border: 1px solid #333;
+    background-color: #111;
+    max-width: 950px;
+    margin: 0 auto; 
+}
+
+
+.table-header {
+    display: flex;
+    margin: 0;
+    background-color: #1a1a1a;
+    padding: 15px 40px; 
+    border-bottom: 1px solid #333;
+    font-weight: bold;
+    color: #e0e0e0;
+    border-radius: 0;
+}
+
+
+.table-row {
+    display: flex;
+    align-items: center;
+    padding: 15px 40px;
+    margin-bottom: 0 !important;
+    border-bottom: 1px solid #333; 
+    border-radius: 0 !important;
+    transition: background-color 0.2s;
+}
+
+
+.table-row:last-child {
+    border-bottom: none;
+}
+
+.table-row:hover {
+    background-color: #2a2a2a; 
+    cursor: pointer;
+}
+
+
+.img-placeholder {
+    width: 60px;
+    height: 40px;
+    background-color: #222;
+    border-radius: 0 !important; 
+}
+
+
+.table-body {
+    padding: 0;
+}
+
+.table-body {
+    padding: 0;
+    max-height: 350px; 
+    overflow-y: auto;  
+    scrollbar-width: thin; 
+    scrollbar-color: #555 transparent; 
+}
+
+
+.table-body::-webkit-scrollbar {
+    width: 8px; 
+}
+
+.table-body::-webkit-scrollbar-track {
+    background: transparent; 
+}
+
+.table-body::-webkit-scrollbar-thumb {
+    background-color: #555;
+    border-radius: 10px; 
+}
+
+.table-body::-webkit-scrollbar-button {
+    display: none; 
+}
+
+.col-img { 
+    flex: 0; 
+    display: flex; 
+    justify-content: center;
+    align-items: center;
+} 
+.col-name { 
+    flex: 1.5; 
+    text-align: center;
+}
+.col-coords { 
+    flex: 0.5; 
+    text-align: center; 
+}
+.col-date { 
+    flex: 1.5; 
+    text-align: center; 
+}
+
+
+.col-actions { 
+    flex: 1.5; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+}
+
+.col-actions { 
+    flex: 1; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+} 
+
+.btn-action-delete {
+    background-color: #ac0202; 
+    color: white;
+    border: none;
+    padding: 8px 16px; 
+    border-radius: 30px;
+    font-weight: bold;
+    cursor: pointer;
+    width: auto; 
+    font-size: 1rem;
+    box-shadow: 0 0 10px rgba(191, 0, 0, 0.5);
+    margin: 0; 
+    transition: all 0.3s ease;
+    flex: 1; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+}
+
+.btn-action-delete:hover {
+    box-shadow: 0 0 20px rgba(255, 0, 0, 0.8); 
+    transform: translateY(-2px);
+}
+
+.custom-modal {
+    display: none;
+    position: fixed;
+    z-index: 1000; 
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7); 
+    backdrop-filter: blur(4px); 
+    justify-content: center;
+    align-items: center;
+}
+
+
+.modal-content {
+    background-color: #111;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 30px;
+    width: 350px;
+    text-align: center;
+    box-shadow: 0 0 20px rgba(172, 2, 2, 0.2);
+}
+
+.modal-content h3 {
+    color: white;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.modal-content p {
+    color: #aaa;
+    font-size: 0.95em;
+    margin-bottom: 25px;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px; 
+}
+
+.btn-cancel {
+    flex: 1;
+    padding: 10px;
+    background-color: #333;
+    color: white;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background 0.2s;
+}
+
+.btn-cancel:hover {
+    background-color: #555;
+}
+
+.btn-confirm-delete {
+    flex: 1;
+    padding: 10px;
+    background-color: #ac0202;
+    color: white;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0 0 10px rgba(191, 0, 0, 0.5);
+    transition: all 0.3s ease;
+}
+
+.btn-confirm-delete:hover {
+    box-shadow: 0 0 20px rgba(255, 0, 0, 0.8);
+    transform: translateY(-2px);
 }

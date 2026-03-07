@@ -3,7 +3,6 @@ function toggleProfileMenu() {
     menu.classList.toggle('show');
 }
 
-// Cerrar el menú si haces clic fuera de él
 window.onclick = function(event) {
     if (!event.target.matches('.profile-circle') && !event.target.matches('.profile-circle img')) {
         const dropdowns = document.getElementsByClassName("profile-dropdown");
@@ -25,7 +24,7 @@ function handleLogout() {
 // --- BUSCADOR ---
 function handleSearch() {
     const query = document.getElementById('global-search').value.toLowerCase();
-    const rows = document.querySelectorAll('.geofence-row'); // Usamos la clase de tus nuevos rectángulos
+    const rows = document.querySelectorAll('.geofence-row'); 
 
     rows.forEach(row => {
         const text = row.innerText.toLowerCase();
@@ -38,14 +37,93 @@ document.addEventListener('DOMContentLoaded', () => {
 
     navLinks.forEach(link => {
         link.addEventListener('click', function(e) {
-            // 1. Quitar la clase 'active' de todos los botones
             navLinks.forEach(item => item.classList.remove('active'));
 
-            // 2. Agregar la clase 'active' al botón presionado
             this.classList.add('active');
             
-            // Nota: Si el enlace redirige a otra página, el estado se perderá 
-            // a menos que la nueva página detecte su propia URL.
         });
     });
 });
+function viajarAlMapa(fila) {
+            const coordenadasStr = fila.getAttribute('data-coords');
+            
+            localStorage.setItem('zonaParaDibujar', coordenadasStr);
+            
+            window.location.href = '/map';
+        }
+
+async function eliminarGeocerca(id_zona) {
+    if (confirm("¿Estás seguro de que quieres eliminar esta geocerca? Esta acción no se puede deshacer.")) {
+        try {
+            const response = await fetch(`/api/delete_zone/${id_zona}`, {
+                method: 'POST' 
+            });
+            
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                alert("Error al intentar eliminar la zona en el servidor.");
+            }
+        } catch (error) {
+            console.error("Error:", error);
+            alert("Ocurrió un error de conexión con el servidor.");
+        }
+    }
+}
+
+        let zonaAEliminar = null;
+        function eliminarGeocerca(id_zona) {
+            zonaAEliminar = id_zona; 
+            document.getElementById('deleteModal').style.display = 'flex'; 
+        }
+
+        function cerrarModal() {
+            zonaAEliminar = null; 
+            document.getElementById('deleteModal').style.display = 'none'; 
+        }
+
+        async function confirmarEliminacion() {
+            if (!zonaAEliminar) return; 
+
+            try {
+                const response = await fetch(`/api/delete_zone/${zonaAEliminar}`, {
+                    method: 'POST' 
+                });
+                
+                if (response.ok) {
+                    window.location.reload(); 
+                } else {
+                    alert("Error al intentar eliminar la zona.");
+                    cerrarModal();
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                alert("Ocurrió un error de conexión con el servidor.");
+                cerrarModal();
+            }
+        }
+
+
+const searchInput = document.getElementById('dash-search');
+
+if (searchInput) {
+    searchInput.addEventListener('input', function(evento) {
+        const textoBuscado = evento.target.value.toLowerCase().trim();
+        
+        const filas = document.querySelectorAll('.table-body .table-row');
+
+        filas.forEach(fila => {
+            const elementoNombre = fila.querySelector('.col-name');
+            
+            if (elementoNombre) {
+                const nombreGeocerca = elementoNombre.textContent.toLowerCase().trim();
+
+                if (nombreGeocerca.startsWith(textoBuscado)) {
+                    fila.style.display = 'flex';
+                } else {
+                    fila.style.display = 'none';
+                }
+            }
+        });
+    });
+}

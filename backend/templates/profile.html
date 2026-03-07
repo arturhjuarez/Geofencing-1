@@ -53,25 +53,82 @@
         <div class="dash-content">
             <aside class="dash-sidebar">
                 <button class="btn-create-neon" onclick="window.location.href='/map'">
-                    Crear nueva geocerca
+                    Crear nueva geocerca +
                 </button>
                 
                 <nav class="side-nav">
-                    <a href="#" class="nav-link active">Mis geocercas</a> <a href="#" class="nav-link">Recientes</a>
+                    <a href="#" class="nav-link active">Mis geocercas</a> 
+                    <a href="#" class="nav-link">Recientes</a>
                     <a href="#" class="nav-link">Destacados</a>
                     <a href="#" class="nav-link">Agregar dispositivo</a>
                     <a href="#" class="nav-link">Papelera</a>
                 </nav>
             </aside>
 
-            <main class="dash-view">
-                <div class="data-panel">
+            <main class="dash-view profile-view">
+                <h2 class="section-title">Tus Geocercas</h2>
+
+                <div class="data-panel geofence-panel">
+                    <div class="geofence-table-container">
+                            
+                        <div class="table-header">
+                            <div class="col-img">Imagen</div>
+                            <div class="col-name">Nombre</div>
+                            <div class="col-coords">Puntos</div> 
+                            <div class="col-date">Fecha</div>
+                            <div class="col-actions">Acciones</div> 
+                        </div>
+
+                        <div class="table-body">
+                            {% for zona in geocercas %}
+                            <div class="table-row" data-coords='{{ zona.coordenadas_json }}' onclick="viajarAlMapa(this)">
+                                <div class="col-img">
+                                    <div class="img-placeholder"></div>
+                                </div>
+                                
+                                <div class="col-name">{{ zona.nombre_zona }}</div>
+                                
+                                <div class="col-coords">
+                                    {{ zona.cantidad_puntos }} puntos
+                                </div>
+                                
+                                <div class="col-date">
+                                    {{ zona.fecha_creacion.strftime('%d/%m/%Y') if zona.fecha_creacion else 'N/D' }}
+                                </div>
+
+                                <div class="col-actions">
+                                    <button class="btn-action-delete" 
+                                            title="Eliminar geocerca" 
+                                            onclick="event.stopPropagation(); eliminarGeocerca('{{ zona.id_geocerca }}')">
+                                        Eliminar
+                                    </button>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="no-data">
+                                <p>Aún no tienes geocercas guardadas. ¡Ve al mapa a dibujar una!</p>
+                            </div> 
+                            {% endfor %}
+                        </div>
+
                     </div>
+                </div>
             </main>
         </div>
     </div>
-</body>
+    <div id="deleteModal" class="custom-modal">
+        <div class="modal-content">
+            <h3>Eliminar Geocerca</h3>
+            <p>¿Estás seguro de que quieres eliminar esta zona? Esta acción no se puede deshacer.</p>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="cerrarModal()">Cancelar</button>
+                <button class="btn-confirm-delete" onclick="confirmarEliminacion()">Sí, eliminar</button>
+            </div>
+        </div>
+    </div>
     <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
     <script src="{{ url_for('static', filename='js/particles-config.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+
+</body>
 </html>
