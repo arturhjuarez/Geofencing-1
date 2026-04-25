@@ -12,9 +12,50 @@
     
 </head>
 <body>
+    <div class="search-box-container">
+        <button id="menu-toggle" onclick="toggleMenu()">☰</button>
+        <input type="text" id="map-search" placeholder="Buscar lugar...">
+        <button id="search-action-btn">🔍</button>
+    </div>
+    <div class="map-save-container">
+        <input type="text" id="map-name-input" value="Mapa 1">
+        <button id="btn-save-map" title="Guardar Mapa actual">💾</button>
+    </div>
+    <div class="draw-tools-container">
+        <button id="btn-main-draw" class="main-draw-btn">✏️ Dibujar</button>
 
-    <button id="menu-toggle" onclick="toggleMenu()">☰</button>
+        <div class="dropdown-wrapper">
+            <button id="btn-draw-dropdown" class="dropdown-arrow-btn">▼</button>
 
+            <div id="draw-dropdown-menu" class="dropdown-menu">
+                <button class="dropdown-item" id="btn-draw-circle">⭕ Circular</button>
+                <button class="dropdown-item" id="btn-draw-coords">📍 Coordenadas exactas</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="geofence-creator-panel" id="geo-panel">
+        <div class="geofence-header" id="geo-panel-header">
+            <span>Geocerca</span>
+            <span id="geo-panel-arrow" class="arrow-icon">︾</span>
+        </div>
+        
+        <div class="geofence-content" id="geo-panel-content">
+            <input type="text" id="geo-panel-name" placeholder="Nombre de la zona...">
+            
+            <div class="coord-list-container">
+                <ul id="geo-coord-list">
+                    </ul>
+            </div>
+
+            <div class="geo-panel-actions">
+                <button id="btn-geo-cancel" class="geo-btn-cancel">Cancelar</button>
+                <button id="btn-geo-confirm" class="geo-btn-confirm">Confirmar</button>
+            </div>
+            <button id="btn-geo-save" class="geo-btn-save">Guardar Geocerca</button>
+        </div>
+    </div>
+    
     <div id="sidebar">
         <h2>GeoTracker Pro</h2>
         <p>Panel de Control</p>
@@ -41,7 +82,8 @@
     </div>
 
     <div id="map"></div>
-    <div id="alert-box"><span>🛡️</span> <span>SISTEMA SEGURO</span></div>
+        <div id="alert-box"><span>SISTEMA SEGURO</span></div>
+
     <div id="coordModal" class="modal-overlay">
         <div class="modal-content glass">
             <h3>Área por Coordenadas</h3>

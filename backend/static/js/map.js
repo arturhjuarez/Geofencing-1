@@ -1,5 +1,8 @@
 const socket = io();
-const map = L.map('map').setView([19.4326, -99.1332], 13);
+
+const map = L.map('map', {
+    zoomControl: false 
+}).setView([19.4326, -99.1332], 13); 
 
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; CARTO'
@@ -19,6 +22,9 @@ let drawnPoints = [];
 let tempMarkers = [];
 let tempPolygon = null; 
 let customPolygonsLayer = L.layerGroup().addTo(map);
+let hoverPolyline = null;
+let previewLines = null;
+let previewShape = null;
 
 // Variables de Simulación
 let simStart = null;
@@ -101,23 +107,20 @@ async function sendFakeLocation(lat, lng) {
         });
     } catch (e) { console.error(e); }
 }
-
+//-------------------------------------------------------------------------------MAP.ON
 map.on('click', function(e) {
     
     if (currentMode === 'DRAWING') {
         const lat = e.latlng.lat;
         const lng = e.latlng.lng;
         drawnPoints.push({lat, lng});
-        const marker = L.circleMarker([lat, lng], {color: '#d05ce3', radius: 4}).addTo(map);
-        tempMarkers.push(marker);
-
-        if (drawnPoints.length > 2) {
-            if (tempPolygon) map.removeLayer(tempPolygon);
-            tempPolygon = L.polygon(drawnPoints.map(p => [p.lat, p.lng]), {color: '#d05ce3', dashArray: '5, 5'}).addTo(map);
-            document.getElementById('btn-save').style.display = 'block';
-            document.getElementById('sidebar').classList.add('active'); 
-            updateStatus("Zona cerrada. ¡Guárdala!");
+        
+        if (previewShape) {
+            map.removeLayer(previewShape);
+            previewShape = null;
         }
+        
+        updateDrawingUI();
     }
     else if (currentMode === 'SIMULATING') {
         if (!simStart) {
@@ -138,6 +141,32 @@ map.on('click', function(e) {
     }
 });
 
+map.on('mousemove', function(e) {
+    if (currentMode === 'DRAWING' && drawnPoints.length > 0) {
+        const mouseCoords = [e.latlng.lat, e.latlng.lng];
+        const first = [drawnPoints[0].lat, drawnPoints[0].lng];
+        const last = [drawnPoints[drawnPoints.length - 1].lat, drawnPoints[drawnPoints.length - 1].lng];
+
+        if (previewShape) map.removeLayer(previewShape);
+
+        if (drawnPoints.length === 1) {
+            previewShape = L.polyline([first, mouseCoords], {
+                color: '#28a745',
+                weight: 2,
+                dashArray: '5, 10'
+            }).addTo(map);
+        } else {
+            previewShape = L.polygon([first, mouseCoords, last], {
+                color: '#28a745',
+                weight: 2,
+                dashArray: '5, 10',
+                fillColor: '#28a745',
+                fillOpacity: 0.3,
+                interactive: false
+            }).addTo(map);
+        }
+    }
+});
 // --- FUNCIONES DE DIBUJO ---
 function startDrawing() {
     stopSimulation(); // Detener simulación si hay una activa
@@ -147,6 +176,11 @@ function startDrawing() {
     closeMenu();
     updateStatus("Modo Dibujo: Marca puntos...");
     map.getContainer().style.cursor = 'crosshair';
+
+    // --- NUEVO: Mostrar y resetear el panel ---
+    geoPanel.style.display = 'block';
+    geoCoordList.innerHTML = ''; // Limpia la lista de puntos viejos
+    geoPanelName.value = ''; // Limpia el texto del nombre
 }
 
 async function saveCurrentZone() {
@@ -181,7 +215,71 @@ function resetTempDrawing() {
     tempMarkers = [];
     if (tempPolygon) map.removeLayer(tempPolygon);
     tempPolygon = null;
+    
+    if (previewShape) {
+        map.removeLayer(previewShape);
+        previewShape = null;
+    }
+
     document.getElementById('btn-save').style.display = 'none';
+    if (typeof geoCoordList !== 'undefined') geoCoordList.innerHTML = '';
+}
+
+// MODIFICAR DIBUJO 
+const btnGeoSave = document.getElementById('btn-geo-save');
+
+function updateDrawingUI() {
+    tempMarkers.forEach(m => map.removeLayer(m));
+    tempMarkers = [];
+    if (tempPolygon) map.removeLayer(tempPolygon);
+    tempPolygon = null;
+
+    geoCoordList.innerHTML = '';
+
+    drawnPoints.forEach((pto, index) => {
+        const marker = L.circleMarker([pto.lat, pto.lng], {color: '#d05ce3', radius: 4, fillOpacity: 0.8}).addTo(map);
+        tempMarkers.push(marker);
+
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <div><span>Pto ${index + 1}:</span> ${pto.lat.toFixed(5)}, ${pto.lng.toFixed(5)}</div>
+            <button class="btn-delete-point" title="Borrar punto">🗑️</button>
+        `;
+
+        const btnBorrar = li.querySelector('.btn-delete-point');
+        btnBorrar.addEventListener('click', () => {
+            drawnPoints.splice(index, 1);
+            if (typeof hoverPolyline !== 'undefined' && hoverPolyline) map.removeLayer(hoverPolyline);
+            updateDrawingUI();
+        });
+
+        btnBorrar.addEventListener('mouseenter', () => {
+            marker.setStyle({color: 'red', fillColor: 'red', radius: 7});
+            if (drawnPoints.length > 1) {
+                const prev = (index - 1 + drawnPoints.length) % drawnPoints.length;
+                const next = (index + 1) % drawnPoints.length;
+                let coords = (drawnPoints.length === 2) ? 
+                    [[drawnPoints[0].lat, drawnPoints[0].lng], [drawnPoints[1].lat, drawnPoints[1].lng]] :
+                    [[drawnPoints[prev].lat, drawnPoints[prev].lng], [drawnPoints[index].lat, drawnPoints[index].lng], [drawnPoints[next].lat, drawnPoints[next].lng]];
+                hoverPolyline = L.polyline(coords, {color: 'red', weight: 5, opacity: 0.8}).addTo(map);
+            }
+        });
+
+        btnBorrar.addEventListener('mouseleave', () => {
+            marker.setStyle({color: '#d05ce3', fillColor: '#d05ce3', radius: 4});
+            if (typeof hoverPolyline !== 'undefined' && hoverPolyline) { map.removeLayer(hoverPolyline); hoverPolyline = null; }
+        });
+
+        geoCoordList.insertBefore(li, geoCoordList.firstChild);
+    });
+
+    if (drawnPoints.length > 2) {
+        tempPolygon = L.polygon(drawnPoints.map(p => [p.lat, p.lng]), {
+            color: '#d05ce3', 
+            fillColor: '#d05ce3',
+            fillOpacity: 0.4
+        }).addTo(map);
+    }
 }
 
 // --- RASTREO (SOCKETS) ---
@@ -337,5 +435,244 @@ window.addEventListener('load', () => {
         map.fitBounds(miGeocerca.getBounds());
         
         localStorage.removeItem('zonaParaDibujar');
+    }
+});
+
+//Presionar fuera de la barra deslizante para salir 
+const sidebar = document.getElementById('sidebar');
+const menuToggle = document.getElementById('menu-toggle');
+
+document.addEventListener('click', function(evento) {
+    const menuAbierto = sidebar.classList.contains('active');
+    const clicFueraDelMenu = !sidebar.contains(evento.target);
+    const clicNoFueEnBoton = !menuToggle.contains(evento.target);
+
+    if (menuAbierto && clicFueraDelMenu && clicNoFueEnBoton) {
+        sidebar.classList.remove('active');
+    }
+});
+
+// Agregamos el zoom en la esquina inferior derecha
+L.control.zoom({
+    position: 'bottomright'
+}).addTo(map);
+
+//Buscar lugar
+const searchInput = document.getElementById('map-search');
+const searchBtn = document.getElementById('search-action-btn');
+let searchMarker = null;
+
+async function buscarLugarEnMapa() {
+    const textoBuscado = searchInput.value.trim();
+    
+    if (textoBuscado === "") return; 
+
+    try {
+        searchBtn.textContent = "⏳";
+
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(textoBuscado)}`);
+        const datos = await response.json();
+
+        searchBtn.textContent = "🔍";
+
+        if (datos && datos.length > 0) {
+            const resultado = datos[0];
+            const lat = parseFloat(resultado.lat);
+            const lng = parseFloat(resultado.lon);
+
+            map.flyTo([lat, lng], 15);
+
+            if (searchMarker !== null) {
+                map.removeLayer(searchMarker);
+            }
+
+            searchMarker = L.marker([lat, lng]).addTo(map);
+            searchMarker.bindPopup(`<b>Lugar encontrado:</b><br>${resultado.display_name}`).openPopup();
+            
+        } else {
+            alert("No se encontró ningún lugar con ese nombre.");
+        }
+    } catch (error) {
+        console.error(error);
+        searchBtn.textContent = "🔍";
+        alert("Hubo un error de conexión al buscar el lugar.");
+    }
+}
+
+searchBtn.addEventListener('click', buscarLugarEnMapa);
+
+searchInput.addEventListener('keypress', function(evento) {
+    if (evento.key === 'Enter') {
+        buscarLugarEnMapa();
+    }
+});
+
+const btnDrawDropdown = document.getElementById('btn-draw-dropdown');
+const drawDropdownMenu = document.getElementById('draw-dropdown-menu');
+const btnMainDraw = document.getElementById('btn-main-draw');
+
+// Mostrar u ocultar el menú con la flecha
+btnDrawDropdown.addEventListener('click', function(event) {
+    event.stopPropagation();
+    drawDropdownMenu.classList.toggle('show');
+});
+
+// Cerrar el menú si das clic en cualquier otra parte de la pantalla
+document.addEventListener('click', function(event) {
+    if (!drawDropdownMenu.contains(event.target) && !btnDrawDropdown.contains(event.target)) {
+        drawDropdownMenu.classList.remove('show');
+    }
+});
+
+// Acción principal: Dibujar (Vincula esto a tu función de trazar polígono)
+btnMainDraw.addEventListener('click', function() {
+    startDrawing();
+});
+
+// Opción 1: Circular
+document.getElementById('btn-draw-circle').addEventListener('click', function() {
+    console.log("Activando dibujo circular...");
+    drawDropdownMenu.classList.remove('show');
+});
+
+// Opción 2: Coordenadas
+document.getElementById('btn-draw-coords').addEventListener('click', function() {
+    openCoordModal();
+    drawDropdownMenu.classList.remove('show');
+});
+
+/* ==========================================
+   PANEL DE CREACIÓN DE GEOCERCA (Top Right)
+   ========================================== */
+const geoPanel = document.getElementById('geo-panel');
+const geoPanelHeader = document.getElementById('geo-panel-header');
+const geoPanelContent = document.getElementById('geo-panel-content');
+const geoPanelArrow = document.getElementById('geo-panel-arrow');
+const geoCoordList = document.getElementById('geo-coord-list');
+const btnGeoCancel = document.getElementById('btn-geo-cancel');
+const btnGeoConfirm = document.getElementById('btn-geo-confirm');
+const geoPanelName = document.getElementById('geo-panel-name');
+
+// 1. Desplegar/Ocultar menú con la flecha
+geoPanelHeader.addEventListener('click', () => {
+    geoPanelContent.classList.toggle('collapsed');
+    geoPanelArrow.classList.toggle('arrow-up');
+});
+
+// 2. Botón Cancelar del panel
+btnGeoCancel.addEventListener('click', () => {
+    resetTempDrawing();
+    geoPanel.style.display = 'none'; // Ocultamos el panel
+    currentMode = 'IDLE';
+    map.getContainer().style.cursor = 'grab';
+    updateStatus("Dibujo cancelado.");
+});
+
+// 3. Botón Confirmar del panel (Reemplaza tu función saveCurrentZone)
+// Declaramos el nuevo botón Guardar
+
+
+// --- NUEVA FUNCIÓN PARA EL BOTÓN GUARDAR ---
+btnGeoSave.addEventListener('click', async () => {
+    const name = geoPanelName.value.trim();
+    
+    if (drawnPoints.length < 3) {
+        alert("Necesitas marcar al menos 3 puntos en el mapa.");
+        return;
+    }
+    if (!name) {
+        alert("Por favor, ingresa un nombre para la geocerca.");
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/add_zone', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ name: name, points: drawnPoints })
+        });
+
+        if (response.ok) {
+            L.polygon(drawnPoints.map(p => [p.lat, p.lng]), {color: '#9c27b0', fillOpacity: 0.4}).addTo(customPolygonsLayer);
+            resetTempDrawing();
+            currentMode = 'IDLE';
+            map.getContainer().style.cursor = 'grab';
+            geoPanel.style.display = 'none'; // Ocultamos el panel
+            
+            updateStatus("Geocerca guardada con éxito.");
+            alert(`✅ La geocerca '${name}' se guardó correctamente.`);
+        } else {
+            const err = await response.json(); 
+            alert("Error al guardar: " + err.message);
+        }
+    } catch (error) { 
+        console.error(error);
+        alert("Error de conexión con el servidor."); 
+    }
+});
+
+// --- FUNCIÓN TEMPORAL PARA EL BOTÓN CONFIRMAR ------------------------------------------------------------------------AGREGAR
+// Por ahora solo lo dejamos vacío para que no cause conflictos
+btnGeoConfirm.addEventListener('click', () => {
+    console.log("Botón Confirmar presionado. Preparado para el siguiente paso.");
+});
+
+let currentMapId = null; 
+const mapNameInput = document.getElementById('map-name-input');
+const btnSaveMap = document.getElementById('btn-save-map');
+
+window.addEventListener('load', async () => {
+    try {
+        const response = await fetch('/api/get_next_map_name');
+        if (response.ok) {
+            const data = await response.json();
+            if (data.nextName) {
+                mapNameInput.value = data.nextName; 
+            }
+        }
+    } catch (error) {
+        console.log("Servidor no respondió el nombre automático. Usando default.");
+    }
+});
+
+btnSaveMap.addEventListener('click', async () => {
+    const mapName = mapNameInput.value.trim();
+    
+    if (!mapName) {
+        alert("El mapa debe tener un nombre.");
+        return;
+    }
+
+    btnSaveMap.textContent = "⏳"; 
+
+    try {
+        const payload = {
+            map_id: currentMapId, 
+            name: mapName
+        };
+
+        const response = await fetch('/api/save_map', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            
+            if (!currentMapId) {
+                currentMapId = data.new_map_id; 
+            }
+            
+            updateStatus(`Mapa '${mapName}' guardado/actualizado.`);
+            alert(`✅ El mapa '${mapName}' y sus zonas se guardaron correctamente.`);
+        } else {
+            alert("Error al guardar el mapa.");
+        }
+    } catch (error) {
+        console.error(error);
+        alert("Error de conexión al guardar el mapa.");
+    } finally {
+        btnSaveMap.textContent = "💾"; 
     }
 });
