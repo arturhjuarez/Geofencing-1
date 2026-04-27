@@ -169,11 +169,13 @@
 .dash-view {
     overflow-y: auto;
     padding-right: 10px;
+    
 }
 
 .data-panel {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(12px);
     border-radius: 20px;
     min-height: 80%;
     padding: 30px;
@@ -286,9 +288,10 @@
 .geofence-panel {
     padding: 0;
     overflow: hidden; 
-    border-radius: 12px; 
-    border: 1px solid #333;
-    background-color: #111;
+    border-radius: 5px; 
+    background: rgba(255, 255, 255, 0.05);
+    border: transparent;
+    backdrop-filter: blur(5px);
     max-width: 950px;
     margin: 0 auto; 
 }
@@ -297,19 +300,21 @@
 .table-header {
     display: flex;
     margin: 0;
-    background-color: #1a1a1a;
-    padding: 15px 40px; 
-    border-bottom: 1px solid #333;
+    background: rgba(255, 255, 255, 0.05);
+    border: transparent;
+    backdrop-filter: blur(12px);
+    padding: 5px 40px; 
+    
     font-weight: bold;
     color: #e0e0e0;
-    border-radius: 0;
+    border-radius: 7px;
 }
 
 
 .table-row {
     display: flex;
     align-items: center;
-    padding: 15px 40px;
+    padding: 5px 40px;
     margin-bottom: 0 !important;
     border-bottom: 1px solid #333; 
     border-radius: 0 !important;
@@ -400,8 +405,8 @@
 } 
 
 .btn-action-delete {
-    background-color: #ac0202; 
-    color: white;
+    background-color: transparent; 
+    color: #ac0202;;
     border: none;
     padding: 8px 16px; 
     border-radius: 30px;
@@ -409,7 +414,7 @@
     cursor: pointer;
     width: auto; 
     font-size: 1rem;
-    box-shadow: 0 0 10px rgba(191, 0, 0, 0.5);
+    /*box-shadow: 0 0 10px rgba(191, 0, 0, 0.5);*/
     margin: 0; 
     transition: all 0.3s ease;
     flex: 1; 
@@ -419,7 +424,7 @@
 }
 
 .btn-action-delete:hover {
-    box-shadow: 0 0 20px rgba(255, 0, 0, 0.8); 
+    /*box-shadow: 0 0 20px rgba(255, 0, 0, 0.8);*/ 
     transform: translateY(-2px);
 }
 
@@ -498,4 +503,12 @@
 .btn-confirm-delete:hover {
     box-shadow: 0 0 20px rgba(255, 0, 0, 0.8);
     transform: translateY(-2px);
+}
+
+.clickable-row {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.clickable-row:hover {
+    background-color: rgba(255, 255, 255, 0.05);
 }

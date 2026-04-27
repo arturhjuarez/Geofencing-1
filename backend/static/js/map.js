@@ -417,26 +417,75 @@ async function confirmSave() {
     }
 }
 
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const mapIdFromUrl = urlParams.get('map_id');
+
+    if (mapIdFromUrl) {
+        // --- CASO A: VIENE DE "MIS MAPAS" (Cargamos el existente) ---
+        try {
+            const response = await fetch(`/api/get_map_zones/${mapIdFromUrl}`);
+            if (response.ok) {
+                const data = await response.json();
+                
+                // Ponemos el nombre real (ej: "Mapa 2") y guardamos el ID
+                if (typeof mapNameInput !== 'undefined' && mapNameInput) {
+                    mapNameInput.value = data.nombre_mapa;
+                }
+                currentMapId = mapIdFromUrl; 
+
+                data.zonas.forEach(zona => {
+                    const latlngs = zona.puntos.map(p => [p.lat, p.lng]);
+                    const polygon = L.polygon(latlngs, {
+                        color: '#9c27b0', 
+                        fillOpacity: 0.4
+                    }).addTo(customPolygonsLayer);
+                    
+                    polygon.bindPopup(`<b>${zona.nombre}</b>`);
+                });
+
+                if (data.zonas.length > 0) {
+                    map.fitBounds(customPolygonsLayer.getBounds());
+                }
+                
+                if (typeof updateStatus === 'function') {
+                    updateStatus(`Mapa '${data.nombre_mapa}' cargado.`);
+                }
+            }
+        } catch (error) {
+            console.error("Error al cargar mapa guardado:", error);
+        }
+    } else {
+        // --- CASO B: MAPA NUEVO (Pedimos el siguiente nombre: Mapa 3, 4...) ---
+        try {
+            const response = await fetch('/api/get_next_map_name');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.nextName && typeof mapNameInput !== 'undefined' && mapNameInput) {
+                    mapNameInput.value = data.nextName; 
+                }
+            }
+        } catch (error) {
+            console.error("Error al obtener nombre automático:", error);
+        }
+    }
+
+    // Lógica para zonas desde el perfil (si existe)
     const zonaGuardada = localStorage.getItem('zonaParaDibujar');
-    
     if (zonaGuardada) {
         const puntos = JSON.parse(zonaGuardada);
-        
         const puntosLeaflet = puntos.map(p => [p.lat, p.lng]);
-        
         const miGeocerca = L.polygon(puntosLeaflet, {
             color: '#00ffcc', 
             weight: 3,
             fillOpacity: 0.3
         }).addTo(map); 
-        
-
         map.fitBounds(miGeocerca.getBounds());
-        
         localStorage.removeItem('zonaParaDibujar');
     }
 });
+
+
 
 //Presionar fuera de la barra deslizante para salir 
 const sidebar = document.getElementById('sidebar');
@@ -589,7 +638,11 @@ btnGeoSave.addEventListener('click', async () => {
         const response = await fetch('/api/add_zone', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ name: name, points: drawnPoints })
+            body: JSON.stringify({ 
+                name: name, 
+                points: drawnPoints,
+                map_id: currentMapId // <--- AGREGAMOS ESTA LÍNEA
+            })
         });
 
         if (response.ok) {
@@ -620,20 +673,6 @@ btnGeoConfirm.addEventListener('click', () => {
 let currentMapId = null; 
 const mapNameInput = document.getElementById('map-name-input');
 const btnSaveMap = document.getElementById('btn-save-map');
-
-window.addEventListener('load', async () => {
-    try {
-        const response = await fetch('/api/get_next_map_name');
-        if (response.ok) {
-            const data = await response.json();
-            if (data.nextName) {
-                mapNameInput.value = data.nextName; 
-            }
-        }
-    } catch (error) {
-        console.log("Servidor no respondió el nombre automático. Usando default.");
-    }
-});
 
 btnSaveMap.addEventListener('click', async () => {
     const mapName = mapNameInput.value.trim();

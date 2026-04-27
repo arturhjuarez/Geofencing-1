@@ -127,3 +127,34 @@ if (searchInput) {
         });
     });
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    const btnTabGeocercas = document.getElementById('btn-tab-geocercas');
+    const btnTabMapas = document.getElementById('btn-tab-mapas');
+    const seccionGeocercas = document.getElementById('seccion-geocercas');
+    const seccionMapas = document.getElementById('seccion-mapas');
+
+    if(btnTabGeocercas && btnTabMapas) {
+        btnTabGeocercas.addEventListener('click', (e) => {
+            e.preventDefault(); // Evita que la página salte
+            seccionGeocercas.style.display = 'block';
+            seccionMapas.style.display = 'none';
+            
+            btnTabGeocercas.classList.add('active');
+            btnTabMapas.classList.remove('active');
+        });
+
+        btnTabMapas.addEventListener('click', (e) => {
+            e.preventDefault();
+            seccionGeocercas.style.display = 'none';
+            seccionMapas.style.display = 'block';
+            
+            btnTabMapas.classList.add('active');
+            btnTabGeocercas.classList.remove('active');
+        });
+    }
+});
+
+function irAlMapa(idMapa) {
+    window.location.href = `/map?map_id=${idMapa}`;
+}

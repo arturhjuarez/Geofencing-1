@@ -247,6 +247,7 @@ p { font-size: 13px; color: #aaa; margin-bottom: 25px; }
     border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0,0,0,0.3);
     border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(5px);
     width: fit-content;
 }
 
@@ -515,10 +516,10 @@ p { font-size: 13px; color: #aaa; margin-bottom: 25px; }
     transform: translateX(-50%);
     z-index: 3000;
     display: flex;
-    background-color: #1e1e1e;
+    /*background-color: #1e1e1e;
     border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);*/
     overflow: hidden;
     height: 44px; 
 }
@@ -528,7 +529,7 @@ p { font-size: 13px; color: #aaa; margin-bottom: 25px; }
     border: none;
     color: white;
     padding: 10px 15px;
-    font-size: 15px;
+    font-size: 25px;
     font-weight: bold;
     outline: none;
     width: 120px;

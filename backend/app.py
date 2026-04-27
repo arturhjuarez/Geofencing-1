@@ -59,8 +59,11 @@ class Mapa(db.Model):
     id_usuario = db.Column(db.Integer, db.ForeignKey('Usuarios.id'), nullable=False)
     nombre_mapa = db.Column(db.String(100), nullable=False)
     fecha_creacion = db.Column(db.DateTime, default=datetime.now)
-    # Relación para que un mapa sepa qué geocercas tiene adentro
     geocercas = db.relationship('Geocerca', backref='mapa', lazy=True)
+
+    @property
+    def cantidad_geocercas(self):
+        return len(self.geocercas)
 
 class Geocerca(db.Model):
     __tablename__ = 'Geocercas' 
@@ -224,6 +227,10 @@ def add_zone():
     data = request.get_json()
     nombre = data.get('name')
     puntos = data.get('points')
+    
+    # --- CAMBIO 1: Recibir el ID del mapa desde JavaScript ---
+    id_mapa_recibido = data.get('map_id') 
+    
     user_email = session.get('user_email')
 
     if not user_email:
@@ -240,6 +247,7 @@ def add_zone():
         # 2. Creamos la nueva geocerca
         nueva_zona = Geocerca(
             id_usuario=user.id,
+            id_mapa=id_mapa_recibido, # --- CAMBIO 2: Asignarla a su mapa de inmediato ---
             nombre_zona=nombre,
             coordenadas_json=json.dumps(puntos)
         )
@@ -248,7 +256,8 @@ def add_zone():
         db.session.add(nueva_zona)
         db.session.commit()
         
-        print(f"✅ Éxito: Geocerca '{nombre}' guardada con SQLAlchemy")
+        # Actualizamos tu print para que también te avise en qué mapa se guardó
+        print(f"✅ Éxito: Geocerca '{nombre}' guardada en R2-D2 (Mapa ID: {id_mapa_recibido})")
         return jsonify({"message": "Ok"}), 200
 
     except Exception as e:
@@ -257,33 +266,30 @@ def add_zone():
         # Ahora el error real viajará hasta tu navegador
         return jsonify({"message": str(e)}), 500
 
-# RUTA AL PERFIL (AQUÍ ESTÁ LA VERSIÓN ÚNICA Y CORRECTA)
+# RUTA AL PERFIL 
 @app.route("/profile")
 def profile():
-    # 1. Verificar sesión
     user_email = session.get('user_email')
     user_name = session.get('user_name')
 
     if not user_email:
         return redirect(url_for('home'))
 
-    # 2. Buscamos al usuario actual en la base de datos
     user = User.query.filter_by(email=user_email).first()
 
-    # 3. Obtenemos todas las geocercas vinculadas a este usuario
     if user:
         mis_zonas = Geocerca.query.filter_by(id_usuario=user.id).all()
-        # Esto imprimirá en tu terminal cuántas encontró para asegurarnos de que funciona
-        print(f"DEBUG: Encontré {len(mis_zonas)} geocercas para {user.nombre}") 
+        # --- NUEVO: Consultamos los mapas ---
+        mis_mapas = Mapa.query.filter_by(id_usuario=user.id).all() 
     else:
         mis_zonas = []
+        mis_mapas = [] # Lista vacía si no hay
 
-    # 4. Enviamos TODO al HTML (incluyendo la variable 'geocercas')
     return render_template('profile.html', 
                            email_html=user_email, 
                            nombre_html=user_name,
-                           geocercas=mis_zonas) 
-
+                           geocercas=mis_zonas,
+                           mapas=mis_mapas) # Pasamos los mapas a la plantilla
 # ----- ELIMINAR GEOCERCA -----------
 @app.route("/api/delete_zone/<int:id_zona>", methods=['POST'])
 def delete_zone(id_zona):
@@ -376,7 +382,33 @@ def save_map():
         db.session.rollback()
         print(f"❌ Error al guardar el mapa: {str(e)}")
         return jsonify({"message": str(e)}), 500
-
+    
+@app.route("/api/get_map_zones/<int:id_mapa>", methods=['GET'])
+def get_map_zones(id_mapa):
+    import json # Aseguramos que json esté cargado
+    
+    user_email = session.get('user_email')
+    if not user_email:
+        return jsonify({"message": "No autorizado"}), 401
+    
+    user = User.query.filter_by(email=user_email).first()
+    mapa = Mapa.query.filter_by(id_mapa=id_mapa, id_usuario=user.id).first()
+    
+    if not mapa:
+        return jsonify({"message": "Mapa no encontrado"}), 404
+    
+    zonas_data = []
+    # Sacamos todas las geocercas que pertenecen a este mapa
+    for zona in mapa.geocercas:
+        zonas_data.append({
+            "nombre": zona.nombre_zona,
+            "puntos": json.loads(zona.coordenadas_json)
+        })
+    
+    return jsonify({
+        "nombre_mapa": mapa.nombre_mapa,
+        "zonas": zonas_data
+    }), 200
 # --- ESTO SIEMPRE DEBE IR HASTA EL FINAL DEL ARCHIVO ---
 if __name__ == "__main__":
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)

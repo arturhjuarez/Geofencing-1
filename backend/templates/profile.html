@@ -57,7 +57,8 @@
                 </button>
                 
                 <nav class="side-nav">
-                    <a href="#" class="nav-link active">Mis geocercas</a> 
+                    <a href="#" id="btn-tab-geocercas" class="nav-link active">Mis geocercas</a> 
+                    <a href="#" id="btn-tab-mapas" class="nav-link">Mis mapas</a>
                     <a href="#" class="nav-link">Recientes</a>
                     <a href="#" class="nav-link">Destacados</a>
                     <a href="#" class="nav-link">Agregar dispositivo</a>
@@ -66,51 +67,72 @@
             </aside>
 
             <main class="dash-view profile-view">
-                <h2 class="section-title">Tus Geocercas</h2>
-
-                <div class="data-panel geofence-panel">
-                    <div class="geofence-table-container">
-                            
-                        <div class="table-header">
-                            <div class="col-img">Imagen</div>
-                            <div class="col-name">Nombre</div>
-                            <div class="col-coords">Puntos</div> 
-                            <div class="col-date">Fecha</div>
-                            <div class="col-actions">Acciones</div> 
-                        </div>
-
-                        <div class="table-body">
-                            {% for zona in geocercas %}
-                            <div class="table-row" data-coords='{{ zona.coordenadas_json }}' onclick="viajarAlMapa(this)">
-                                <div class="col-img">
-                                    <div class="img-placeholder"></div>
-                                </div>
+                
+                <div id="seccion-geocercas">
+                    <h2 class="section-title">Tus Geocercas</h2>
+                    <div class="data-panel geofence-panel">
+                        <div class="geofence-table-container">
                                 
-                                <div class="col-name">{{ zona.nombre_zona }}</div>
-                                
-                                <div class="col-coords">
-                                    {{ zona.cantidad_puntos }} puntos
-                                </div>
-                                
-                                <div class="col-date">
-                                    {{ zona.fecha_creacion.strftime('%d/%m/%Y') if zona.fecha_creacion else 'N/D' }}
-                                </div>
-
-                                <div class="col-actions">
-                                    <button class="btn-action-delete" 
-                                            title="Eliminar geocerca" 
-                                            onclick="event.stopPropagation(); eliminarGeocerca('{{ zona.id_geocerca }}')">
-                                        Eliminar
-                                    </button>
-                                </div>
+                            <div class="table-header">
+                                <div class="col-img">Imagen</div>
+                                <div class="col-name">Nombre</div>
+                                <div class="col-coords">Puntos</div> 
+                                <div class="col-date">Fecha</div>
+                                <div class="col-actions">Acciones</div> 
                             </div>
-                            {% else %}
-                            <div class="no-data">
-                                <p>Aún no tienes geocercas guardadas. ¡Ve al mapa a dibujar una!</p>
-                            </div> 
-                            {% endfor %}
-                        </div>
 
+                            <div class="table-body">
+                                {% for zona in geocercas %}
+                                <div class="table-row" data-coords='{{ zona.coordenadas_json }}' onclick="viajarAlMapa(this)">
+                                    <div class="col-img"><div class="img-placeholder"></div></div>
+                                    <div class="col-name">{{ zona.nombre_zona }}</div>
+                                    <div class="col-coords">{{ zona.cantidad_puntos }} puntos</div>
+                                    <div class="col-date">{{ zona.fecha_creacion.strftime('%d/%m/%Y') if zona.fecha_creacion else 'N/D' }}</div>
+                                    <div class="col-actions">
+                                        <button class="btn-action-delete" title="Eliminar geocerca" onclick="event.stopPropagation(); eliminarGeocerca('{{ zona.id_geocerca }}')">Eliminar</button>
+                                    </div>
+                                </div>
+                                {% else %}
+                                <div class="no-data">
+                                    <p>Aún no tienes geocercas guardadas. ¡Ve al mapa a dibujar una!</p>
+                                </div> 
+                                {% endfor %}
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+                <div id="seccion-mapas" style="display: none;">
+                    <h2 class="section-title">Tus Mapas</h2>
+                    <div class="data-panel geofence-panel">
+                        <div class="geofence-table-container">
+                                
+                            <div class="table-header">
+                                <div class="col-name">Nombre del Mapa</div>
+                                <div class="col-coords">Geocercas</div> 
+                                <div class="col-date">Fecha</div>
+                                <div class="col-actions">Acciones</div> 
+                            </div>
+
+                            <div class="table-body">
+                                {% for mapa in mapas %}
+                                <div class="table-row clickable-row" onclick="irAlMapa('{{ mapa.id_mapa }}')">
+                                    <div class="col-name">{{ mapa.nombre_mapa }}</div>
+                                    <div class="col-coords">{{ mapa.cantidad_geocercas }} geocercas</div>
+                                    <div class="col-date">{{ mapa.fecha_creacion.strftime('%d/%m/%Y') if mapa.fecha_creacion else 'N/D' }}</div>
+                                    <div class="col-actions">
+                                        <button class="btn-action-delete" title="Eliminar mapa" onclick="event.stopPropagation(); eliminarMapa('{{ mapa.id_mapa }}')">Eliminar</button>
+                                    </div>
+                                </div>
+                                {% else %}
+                                <div class="no-data">
+                                    <p>Aún no tienes mapas guardados. ¡Ve al mapa a crear uno!</p>
+                                </div> 
+                                {% endfor %}
+                            </div>
+
+                        </div>
                     </div>
                 </div>
             </main>
