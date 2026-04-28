@@ -1,160 +1,215 @@
+const dashboardUi = {
+    toastRegion: document.getElementById("toast-region"),
+    profileToggle: document.getElementById("profile-toggle"),
+    profileDropdown: document.getElementById("profileDropdown"),
+    searchInput: document.getElementById("dash-search"),
+    geofenceTabButton: document.getElementById("btn-tab-geocercas"),
+    mapTabButton: document.getElementById("btn-tab-mapas"),
+    geofenceSection: document.getElementById("seccion-geocercas"),
+    mapSection: document.getElementById("seccion-mapas"),
+    deleteModal: document.getElementById("deleteModal"),
+    deleteModalTitle: document.getElementById("delete-modal-title"),
+    deleteModalCopy: document.getElementById("delete-modal-copy"),
+    deleteCancelButton: document.getElementById("delete-cancel-btn"),
+    deleteConfirmButton: document.getElementById("delete-confirm-btn"),
+    createGeofenceButton: document.getElementById("create-geofence-btn"),
+    settingsButton: document.getElementById("profile-settings-btn"),
+    profileLogoutButton: document.getElementById("profile-logout-btn"),
+    sidebarLogoutButton: document.getElementById("sidebar-logout-btn"),
+};
+
+const deleteState = {
+    id: null,
+    type: null,
+};
+
+function escapeHtml(value) {
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+}
+
+function showToast(message, tone = "info", title) {
+    if (!dashboardUi.toastRegion) return;
+
+    const toast = document.createElement("div");
+    toast.className = "toast";
+    toast.dataset.tone = tone;
+    toast.innerHTML = `
+        <div class="toast-copy">
+            <span class="toast-title">${escapeHtml(title || tone)}</span>
+            <span class="toast-message">${escapeHtml(message)}</span>
+        </div>
+    `;
+
+    dashboardUi.toastRegion.appendChild(toast);
+    window.setTimeout(() => toast.remove(), 4200);
+}
+
+async function apiRequest(url, options = {}) {
+    const response = await fetch(url, {
+        credentials: "include",
+        headers: {
+            "Content-Type": "application/json",
+            ...(options.headers || {}),
+        },
+        ...options,
+    });
+
+    const contentType = response.headers.get("content-type") || "";
+    const data = contentType.includes("application/json")
+        ? await response.json()
+        : { message: "La respuesta del servidor no es válida." };
+
+    if (!response.ok) {
+        throw new Error(data.message || "No se pudo completar la operación.");
+    }
+
+    return data;
+}
+
 function toggleProfileMenu() {
-    const menu = document.getElementById('profileDropdown');
-    menu.classList.toggle('show');
+    dashboardUi.profileDropdown.classList.toggle("show");
 }
 
-window.onclick = function(event) {
-    if (!event.target.matches('.profile-circle') && !event.target.matches('.profile-circle img')) {
-        const dropdowns = document.getElementsByClassName("profile-dropdown");
-        for (let i = 0; i < dropdowns.length; i++) {
-            let openDropdown = dropdowns[i];
-            if (openDropdown.classList.contains('show')) {
-                openDropdown.classList.remove('show');
-            }
-        }
+function closeProfileMenu() {
+    dashboardUi.profileDropdown.classList.remove("show");
+}
+
+function openDeleteModal(type, id) {
+    deleteState.id = id;
+    deleteState.type = type;
+
+    if (type === "map") {
+        dashboardUi.deleteModalTitle.textContent = "Eliminar mapa";
+        dashboardUi.deleteModalCopy.textContent = "El mapa se eliminará y sus geocercas quedarán sin mapa asignado. Esta acción no se puede deshacer.";
+    } else {
+        dashboardUi.deleteModalTitle.textContent = "Eliminar geocerca";
+        dashboardUi.deleteModalCopy.textContent = "La geocerca se eliminará definitivamente. Esta acción no se puede deshacer.";
+    }
+
+    dashboardUi.deleteModal.style.display = "flex";
+}
+
+function closeDeleteModal() {
+    deleteState.id = null;
+    deleteState.type = null;
+    dashboardUi.deleteModal.style.display = "none";
+}
+
+async function confirmDeletion() {
+    if (!deleteState.id || !deleteState.type) return;
+
+    const isMap = deleteState.type === "map";
+    const endpoint = isMap
+        ? `/api/delete_map/${deleteState.id}`
+        : `/api/delete_zone/${deleteState.id}`;
+
+    try {
+        await apiRequest(endpoint, { method: "POST" });
+        window.location.reload();
+    } catch (error) {
+        showToast(error.message, "error", "No se pudo eliminar");
+        closeDeleteModal();
     }
 }
 
-// --- LOGOUT ---
-function handleLogout() {
-    localStorage.removeItem('user_email');
-    window.location.href = "/";
+function showGeofenceSection() {
+    dashboardUi.geofenceSection.style.display = "block";
+    dashboardUi.mapSection.style.display = "none";
+    dashboardUi.geofenceTabButton.classList.add("active");
+    dashboardUi.mapTabButton.classList.remove("active");
+    handleSearch({ target: dashboardUi.searchInput });
 }
 
-// --- BUSCADOR ---
-function handleSearch() {
-    const query = document.getElementById('global-search').value.toLowerCase();
-    const rows = document.querySelectorAll('.geofence-row'); 
+function showMapSection() {
+    dashboardUi.geofenceSection.style.display = "none";
+    dashboardUi.mapSection.style.display = "block";
+    dashboardUi.mapTabButton.classList.add("active");
+    dashboardUi.geofenceTabButton.classList.remove("active");
+    handleSearch({ target: dashboardUi.searchInput });
+}
 
-    rows.forEach(row => {
-        const text = row.innerText.toLowerCase();
-        row.style.display = text.includes(query) ? 'flex' : 'none';
+function getVisibleRows() {
+    const activeTable = dashboardUi.geofenceSection.style.display === "none"
+        ? dashboardUi.mapSection.querySelectorAll(".table-row")
+        : dashboardUi.geofenceSection.querySelectorAll(".table-row");
+
+    return [...activeTable];
+}
+
+function handleSearch(event) {
+    const query = event.target.value.trim().toLowerCase();
+
+    getVisibleRows().forEach((row) => {
+        const searchValue = row.dataset.search || "";
+        row.style.display = searchValue.includes(query) ? "" : "none";
     });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    const navLinks = document.querySelectorAll('.nav-link');
+function openZoneFromRow(row) {
+    const coordinates = row.getAttribute("data-coords");
+    if (!coordinates) return;
 
-    navLinks.forEach(link => {
-        link.addEventListener('click', function(e) {
-            navLinks.forEach(item => item.classList.remove('active'));
+    localStorage.setItem("zonaParaDibujar", coordinates);
+    window.location.href = "/map";
+}
 
-            this.classList.add('active');
-            
-        });
-    });
-});
-function viajarAlMapa(fila) {
-            const coordenadasStr = fila.getAttribute('data-coords');
-            
-            localStorage.setItem('zonaParaDibujar', coordenadasStr);
-            
-            window.location.href = '/map';
-        }
+function openMapFromRow(row) {
+    const mapId = row.dataset.mapId;
+    if (!mapId) return;
 
-async function eliminarGeocerca(id_zona) {
-    if (confirm("¿Estás seguro de que quieres eliminar esta geocerca? Esta acción no se puede deshacer.")) {
-        try {
-            const response = await fetch(`/api/delete_zone/${id_zona}`, {
-                method: 'POST' 
-            });
-            
-            if (response.ok) {
-                window.location.reload();
-            } else {
-                alert("Error al intentar eliminar la zona en el servidor.");
-            }
-        } catch (error) {
-            console.error("Error:", error);
-            alert("Ocurrió un error de conexión con el servidor.");
-        }
+    window.location.href = `/map?map_id=${mapId}`;
+}
+
+function handleTableClick(event) {
+    const deleteButton = event.target.closest("[data-delete-type]");
+    if (deleteButton) {
+        event.stopPropagation();
+        openDeleteModal(deleteButton.dataset.deleteType, deleteButton.dataset.deleteId);
+        return;
+    }
+
+    const row = event.target.closest(".table-row[data-row-action]");
+    if (!row) return;
+
+    if (row.dataset.rowAction === "open-zone") {
+        openZoneFromRow(row);
+    } else if (row.dataset.rowAction === "open-map") {
+        openMapFromRow(row);
     }
 }
 
-        let zonaAEliminar = null;
-        function eliminarGeocerca(id_zona) {
-            zonaAEliminar = id_zona; 
-            document.getElementById('deleteModal').style.display = 'flex'; 
-        }
+function bindDashboardEvents() {
+    dashboardUi.profileToggle.addEventListener("click", toggleProfileMenu);
+    dashboardUi.geofenceTabButton.addEventListener("click", showGeofenceSection);
+    dashboardUi.mapTabButton.addEventListener("click", showMapSection);
+    dashboardUi.searchInput.addEventListener("input", handleSearch);
+    dashboardUi.deleteCancelButton.addEventListener("click", closeDeleteModal);
+    dashboardUi.deleteConfirmButton.addEventListener("click", confirmDeletion);
+    dashboardUi.createGeofenceButton.addEventListener("click", () => {
+        window.location.href = "/map";
+    });
+    dashboardUi.settingsButton.addEventListener("click", () => {
+        window.location.href = "/settings";
+    });
 
-        function cerrarModal() {
-            zonaAEliminar = null; 
-            document.getElementById('deleteModal').style.display = 'none'; 
-        }
-
-        async function confirmarEliminacion() {
-            if (!zonaAEliminar) return; 
-
-            try {
-                const response = await fetch(`/api/delete_zone/${zonaAEliminar}`, {
-                    method: 'POST' 
-                });
-                
-                if (response.ok) {
-                    window.location.reload(); 
-                } else {
-                    alert("Error al intentar eliminar la zona.");
-                    cerrarModal();
-                }
-            } catch (error) {
-                console.error("Error:", error);
-                alert("Ocurrió un error de conexión con el servidor.");
-                cerrarModal();
-            }
-        }
-
-
-const searchInput = document.getElementById('dash-search');
-
-if (searchInput) {
-    searchInput.addEventListener('input', function(evento) {
-        const textoBuscado = evento.target.value.toLowerCase().trim();
-        
-        const filas = document.querySelectorAll('.table-body .table-row');
-
-        filas.forEach(fila => {
-            const elementoNombre = fila.querySelector('.col-name');
-            
-            if (elementoNombre) {
-                const nombreGeocerca = elementoNombre.textContent.toLowerCase().trim();
-
-                if (nombreGeocerca.startsWith(textoBuscado)) {
-                    fila.style.display = 'flex';
-                } else {
-                    fila.style.display = 'none';
-                }
-            }
+    [dashboardUi.profileLogoutButton, dashboardUi.sidebarLogoutButton].forEach((button) => {
+        button.addEventListener("click", () => {
+            window.location.href = "/logout";
         });
     });
+
+    document.addEventListener("click", (event) => {
+        if (!dashboardUi.profileDropdown.contains(event.target) && !dashboardUi.profileToggle.contains(event.target)) {
+            closeProfileMenu();
+        }
+    });
+
+    document.addEventListener("click", handleTableClick);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    const btnTabGeocercas = document.getElementById('btn-tab-geocercas');
-    const btnTabMapas = document.getElementById('btn-tab-mapas');
-    const seccionGeocercas = document.getElementById('seccion-geocercas');
-    const seccionMapas = document.getElementById('seccion-mapas');
-
-    if(btnTabGeocercas && btnTabMapas) {
-        btnTabGeocercas.addEventListener('click', (e) => {
-            e.preventDefault(); // Evita que la página salte
-            seccionGeocercas.style.display = 'block';
-            seccionMapas.style.display = 'none';
-            
-            btnTabGeocercas.classList.add('active');
-            btnTabMapas.classList.remove('active');
-        });
-
-        btnTabMapas.addEventListener('click', (e) => {
-            e.preventDefault();
-            seccionGeocercas.style.display = 'none';
-            seccionMapas.style.display = 'block';
-            
-            btnTabMapas.classList.add('active');
-            btnTabGeocercas.classList.remove('active');
-        });
-    }
-});
-
-function irAlMapa(idMapa) {
-    window.location.href = `/map?map_id=${idMapa}`;
-}
+bindDashboardEvents();
