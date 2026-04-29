@@ -8,7 +8,7 @@
     <style>
         /* Ajuste específico para que el cuadro de registro sea más ancho */
         .register-card {
-            width: 500px; /* Más ancho que el login que tenía 350px */
+            width: min(520px, 100%);
             padding: 2.5rem;
         }
         /* Organizar los campos en dos columnas si lo deseas, o mantenerlos en lista */
@@ -46,16 +46,26 @@
                     <input type="password" id="password" placeholder="Contraseña" required>
                 </div>
                 
-                <button type="button" class="btn-main" onclick="handleRegister()">Registrarme</button>
+                <button type="submit" class="btn-main">Registrarme</button>
             </form>
-
-            <div id="msg" class="message"></div>
 
             <div class="footer-links">
                 <p>¿Ya tienes cuenta? <a href="/">Inicia sesión aquí</a></p>
             </div>
         </div>
     </main>
+    <div id="auth-modal" class="auth-modal" hidden>
+        <div class="auth-modal-backdrop" data-close-modal="true"></div>
+        <div id="auth-modal-dialog" class="auth-modal-dialog" data-tone="loading" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+            <div class="auth-modal-icon" aria-hidden="true">
+                <span class="auth-modal-spinner"></span>
+                <span class="auth-modal-symbol">!</span>
+            </div>
+            <h3 id="auth-modal-title">No se pudo completar la solicitud</h3>
+            <p id="auth-modal-message"></p>
+            <button id="auth-modal-close" type="button" class="auth-modal-button">Cerrar</button>
+        </div>
+    </div>
     <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
     <script src="{{ url_for('static', filename='js/particles-config.js') }}"></script>
     <script src="{{ url_for('static', filename='js/auth.js') }}"></script>

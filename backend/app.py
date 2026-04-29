@@ -1,35 +1,75 @@
 import os
 import re
+import urllib
+import json
+from datetime import timedelta, datetime
+
 from flask import Flask, request, jsonify, render_template, redirect, url_for, session
 from flask_socketio import SocketIO
 from flask_cors import CORS
 from shapely.geometry import Point, Polygon
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
-#ARTURO
-import pyodbc
-from datetime import timedelta, datetime
-import json
 
 
 
 app = Flask(__name__)
-CORS(app, supports_credentials=True, origins=["http://127.0.0.1:5000"])
-app.config['SECRET_KEY'] = 'mi_clave_secreta_super_segura!'
+CORS(
+    app,
+    supports_credentials=True,
+    origins=[
+        "http://127.0.0.1:5000",
+        "http://localhost:5000",
+        "http://127.0.0.1:5001",
+        "http://localhost:5001",
+    ],
+)
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'mi_clave_secreta_super_segura!')
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 
-import urllib
 
-# --- DB CONFIG ---
-params = urllib.parse.quote_plus(
-    'DRIVER={ODBC Driver 17 for SQL Server};'
-    'SERVER=R2-D2;' # <--- REEMPLAZA ESTO
-    'DATABASE=GeofencingDB;'
-    'Trusted_Connection=yes;'
-)
+def build_database_uri():
+    database_url = os.getenv("DATABASE_URL")
+    if database_url:
+        # Supabase usually provides postgres/postgresql URLs. Use the explicit
+        # psycopg driver so SQLAlchemy does not depend on the older psycopg2 path.
+        if database_url.startswith("postgres://"):
+            return database_url.replace("postgres://", "postgresql+psycopg://", 1)
+        if database_url.startswith("postgresql://"):
+            return database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+        return database_url
 
-app.config['SQLALCHEMY_DATABASE_URI'] = f"mssql+pyodbc:///?odbc_connect={params}"
+    params = urllib.parse.quote_plus(
+        'DRIVER={ODBC Driver 17 for SQL Server};'
+        'SERVER=R2-D2;'
+        'DATABASE=GeofencingDB;'
+        'Trusted_Connection=yes;'
+    )
+    return f"mssql+pyodbc:///?odbc_connect={params}"
+
+
+app.config['SQLALCHEMY_DATABASE_URI'] = build_database_uri()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    "pool_pre_ping": True,
+}
+
+
+def json_response(message, status=200, **extra):
+    payload = {"message": message}
+    payload.update(extra)
+    return jsonify(payload), status
+
+
+def get_json_body():
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        raise ValueError("La solicitud no contiene JSON válido.")
+    return data
+
+
+def normalize_text(value):
+    return value.strip() if isinstance(value, str) else ""
 
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
@@ -81,6 +121,94 @@ class Geocerca(db.Model):
             return len(puntos_lista)
         except:
             return 0
+
+
+def get_authenticated_user():
+    user_email = session.get("user_email")
+    if not user_email:
+        return None, json_response("Debes iniciar sesión para continuar.", 401)
+
+    user = User.query.filter_by(email=user_email).first()
+    if not user:
+        session.clear()
+        return None, json_response("Tu sesión ya no es válida. Inicia sesión de nuevo.", 401)
+
+    return user, None
+
+
+def build_user_display_name(user):
+    if not user:
+        return "Usuario"
+
+    parts = [
+        normalize_text(user.nombre),
+        normalize_text(user.apellido_paterno),
+    ]
+    full_name = " ".join(part for part in parts if part)
+    return full_name or "Usuario"
+
+
+def build_user_initials(user):
+    if not user:
+        return "US"
+
+    letters = []
+    for value in (user.nombre, user.apellido_paterno):
+        clean_value = normalize_text(value)
+        if clean_value:
+            letters.append(clean_value[0].upper())
+
+    if not letters:
+        return "US"
+
+    return "".join(letters[:2])
+
+
+def normalize_zone_points(points):
+    if not isinstance(points, list):
+        raise ValueError("La lista de puntos de la geocerca es inválida.")
+
+    normalized_points = []
+    for point in points:
+        if not isinstance(point, dict):
+            raise ValueError("Cada punto debe incluir latitud y longitud.")
+
+        try:
+            lat = float(point["lat"])
+            lng = float(point["lng"])
+        except (KeyError, TypeError, ValueError):
+            raise ValueError("Cada punto debe incluir latitud y longitud válidas.")
+
+        normalized_points.append({"lat": lat, "lng": lng})
+
+    if len(normalized_points) < 3:
+        raise ValueError("Se necesitan al menos 3 puntos para formar una geocerca.")
+
+    return normalized_points
+
+
+def get_dynamic_zone_polygons(device):
+    zone_query = Geocerca.query
+    if device and device.user_id:
+        zone_query = zone_query.filter_by(id_usuario=device.user_id)
+
+    polygons = []
+    for zone in zone_query.all():
+        try:
+            zone_points = json.loads(zone.coordenadas_json)
+            polygon_points = [
+                (float(point["lng"]), float(point["lat"]))
+                for point in zone_points
+            ]
+            if len(polygon_points) >= 3:
+                polygons.append({
+                    "name": zone.nombre_zona,
+                    "polygon": Polygon(polygon_points),
+                })
+        except (TypeError, ValueError, KeyError, json.JSONDecodeError):
+            app.logger.warning("Se omitió una geocerca inválida: %s", zone.id_geocerca)
+
+    return polygons
 # --- ZONAS (GEOCERCAS) ---
 
 # 1. Zonas Fijas
@@ -103,7 +231,10 @@ CUSTOM_ZONES = []
 def home(): return render_template('login.html')
 
 @app.route("/map")
-def map(): return render_template('index.html')
+def map():
+    if not session.get("user_email"):
+        return redirect(url_for("home"))
+    return render_template('index.html')
 
 # --- API: GESTIÓN DE ZONAS ---
 @app.route("/api/clear_zones", methods=['POST'])
@@ -111,100 +242,124 @@ def clear_zones():
     # Reinicia la lista
     global CUSTOM_ZONES
     CUSTOM_ZONES = []
-    print("🗑️ Todas las zonas personalizadas han sido borradas.")
-    return jsonify({"message": "Zonas borradas"}), 200
+    app.logger.info("Se limpiaron las zonas temporales en memoria.")
+    return json_response("Se limpiaron las zonas temporales.", 200)
 
 # --- API: UBICACIÓN ---
 @app.route("/api/update_location", methods=['POST'])
 def update_location():
-    data = request.get_json()
-    device_id = data.get('device_id', 'unknown')
-    
-    # Nombre del dispositivo
-    device_db = Device.query.filter_by(device_id=device_id).first()
-    alias = device_db.alias if device_db else device_id
-    
     try:
-        user_location = Point(data['lng'], data['lat'])
-        status = 'SAFE'
-        message = 'Zona Segura (Monitoreando...)'
+        data = get_json_body()
+        lat = float(data["lat"])
+        lng = float(data["lng"])
+    except (ValueError, TypeError, KeyError) as error:
+        return json_response(
+            str(error) if isinstance(error, ValueError) else "La ubicación enviada no es válida.",
+            400,
+        )
 
-        # 1. Revisar Zonas Fijas
-        if ZOCALO_POLYGON.contains(user_location):
-            status = 'DANGER'
-            message = f'¡ALERTA! {alias} en el ZÓCALO'
-        elif ESIME_POLYGON.contains(user_location):
-            status = 'WARNING'
-            message = f'¡AVISO! {alias} en ESIME CULHUACÁN'
-        
-        # 2. Revisar Zonas Personalizadas (Bucle)
-        else:
-            # Recorremos la lista de zonas dibujadas
-            for i, zone in enumerate(CUSTOM_ZONES):
-                if zone.contains(user_location):
-                    status = 'DANGER'
-                    message = f'¡ALERTA! {alias} entró en ZONA DIBUJADA #{i+1}'
-                    break # Si ya entró en una, dejamos de buscar
+    device_id = normalize_text(data.get("device_id")) or "unknown"
+    device_db = Device.query.filter_by(device_id=device_id).first()
+    alias = normalize_text(data.get("alias")) or (device_db.alias if device_db else device_id)
 
-        # Emitir evento
-        if status != 'SAFE': print(f">>> 🚨 {message}")
-        socketio.emit('geofence_event', {'status': status, 'message': message})
+    user_location = Point(lng, lat)
+    status = 'SAFE'
+    message = 'Monitoreo activo.'
 
-    except Exception as e:
-        print(f"Error geo: {e}")
+    if ZOCALO_POLYGON.contains(user_location):
+        status = 'DANGER'
+        message = f'{alias} ingresó al Zócalo.'
+    elif ESIME_POLYGON.contains(user_location):
+        status = 'WARNING'
+        message = f'{alias} ingresó a ESIME Culhuacán.'
+    else:
+        for zone in get_dynamic_zone_polygons(device_db):
+            if zone["polygon"].contains(user_location):
+                status = 'DANGER'
+                message = f'{alias} ingresó a {zone["name"]}.'
+                break
 
+    if status != 'SAFE':
+        app.logger.info("Evento de geocerca: %s", message)
+    socketio.emit('geofence_event', {'status': status, 'message': message})
+
+    data['lat'] = lat
+    data['lng'] = lng
     data['alias'] = alias
+    data['device_id'] = device_id
     socketio.emit('new_location', data)
-    return jsonify({"status": "success"})
+    return jsonify({"status": "success", "message": message})
 
 # --- ARTURO AUTH (Igual que antes) ---
 @app.route("/api/register", methods=['POST'])
 def register():
-    data = request.get_json()
-    
-    # Verificamos si el correo ya existe
-    if User.query.filter_by(email=data['email']).first():
-        return jsonify({"message": "El correo ya está registrado"}), 400
-    
-    # Encriptamos la contraseña por seguridad (Fundamental para titulación)
-    hashed = bcrypt.generate_password_hash(data['password']).decode('utf-8')
-    
-    # Creamos el nuevo usuario con todos los campos del formulario ancho
+    try:
+        data = get_json_body()
+    except ValueError as error:
+        return json_response(str(error), 400)
+
+    nombre = normalize_text(data.get("nombre"))
+    paterno = normalize_text(data.get("paterno"))
+    materno = normalize_text(data.get("materno"))
+    telefono = normalize_text(data.get("telefono"))
+    email = normalize_text(data.get("email")).lower()
+    password = data.get("password") if isinstance(data.get("password"), str) else ""
+
+    if not nombre or not paterno or not telefono or not email or not password:
+        return json_response("Completa todos los campos obligatorios.", 400)
+
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        return json_response("Ingresa un correo electrónico válido.", 400)
+
+    if len(password) < 8:
+        return json_response("La contraseña debe tener al menos 8 caracteres.", 400)
+
+    if User.query.filter_by(email=email).first():
+        return json_response("El correo ya está registrado.", 400)
+
+    hashed = bcrypt.generate_password_hash(password).decode('utf-8')
     new_user = User(
-        nombre=data.get('nombre'),
-        apellido_paterno=data.get('paterno'),
-        apellido_materno=data.get('materno'),
-        telefono=data.get('telefono'),
-        email=data['email'],
+        nombre=nombre,
+        apellido_paterno=paterno,
+        apellido_materno=materno,
+        telefono=telefono,
+        email=email,
         password=hashed
     )
-    
+
     try:
         db.session.add(new_user)
         db.session.commit()
-        return jsonify({"message": "Usuario creado correctamente"}), 200
-    except Exception as e:
+        return json_response("Usuario creado correctamente.", 200)
+    except Exception:
         db.session.rollback()
-        print(f"Error al registrar: {e}")
-        return jsonify({"message": "Error interno del servidor"}), 500
+        app.logger.exception("Error al registrar usuario.")
+        return json_response("No se pudo completar el registro.", 500)
 
 @app.route("/api/login", methods=['POST'])
 def login():
-    data = request.get_json()
-    user = User.query.filter_by(email=data.get('email')).first()
+    try:
+        data = get_json_body()
+    except ValueError as error:
+        return json_response(str(error), 400)
+
+    email = normalize_text(data.get("email")).lower()
+    password = data.get("password") if isinstance(data.get("password"), str) else ""
+
+    if not email or not password:
+        return json_response("Ingresa tu correo y contraseña.", 400)
+
+    user = User.query.filter_by(email=email).first()
     
-    if user and bcrypt.check_password_hash(user.password, data.get('password')):
-        # --- ESTO ES LO QUE FALTA PARA ACTIVAR EL MENÚ ---
+    if user and bcrypt.check_password_hash(user.password, password):
         session.permanent = True
         session.modified = True 
         session['user_email'] = user.email
-        session['user_name'] = f"{user.nombre} {user.apellido_paterno}"
-        # -------------------------------------------------
-        
-        print(f" Sesión iniciada para: {session['user_name']}") # Ver en terminal
-        return jsonify({"message": "Ok", "email": user.email}), 200
+        session['user_name'] = build_user_display_name(user)
+        app.logger.info("Sesión iniciada para %s", session['user_name'])
+        return json_response("Inicio de sesión correcto.", 200, email=user.email)
     
-    return jsonify({"message": "Bad"}), 401
+    return json_response("Correo o contraseña incorrectos.", 401)
 
 
 @app.route("/api/link_device", methods=['POST'])
@@ -219,122 +374,200 @@ def register_view():
 
 @app.route("/logout")
 def logout():
+    session.clear()
     return redirect(url_for('home'))
+
+
+@app.route("/settings")
+def settings():
+    user, auth_error = get_authenticated_user()
+    if auth_error:
+        return redirect(url_for("home"))
+
+    return render_template(
+        "settings.html",
+        user=user,
+        nombre_html=build_user_display_name(user),
+        initials_html=build_user_initials(user),
+        geofence_count=Geocerca.query.filter_by(id_usuario=user.id).count(),
+        map_count=Mapa.query.filter_by(id_usuario=user.id).count(),
+        device_count=Device.query.filter_by(user_id=user.id).count(),
+    )
 
 # ----- GUARDAR GEOCERCAS -----------
 @app.route("/api/add_zone", methods=['POST'])
 def add_zone():
-    data = request.get_json()
-    nombre = data.get('name')
-    puntos = data.get('points')
-    
-    # --- CAMBIO 1: Recibir el ID del mapa desde JavaScript ---
-    id_mapa_recibido = data.get('map_id') 
-    
-    user_email = session.get('user_email')
+    user, auth_error = get_authenticated_user()
+    if auth_error:
+        return auth_error
 
-    if not user_email:
-        return jsonify({"message": "Sesión no iniciada"}), 401
-
-    import json
     try:
-        # 1. Buscamos al usuario usando SQLAlchemy (igual que en tu login)
-        user = User.query.filter_by(email=user_email).first()
-        
-        if not user:
-            return jsonify({"message": "Usuario no encontrado"}), 404
+        data = get_json_body()
+        nombre = normalize_text(data.get("name"))
+        puntos = normalize_zone_points(data.get("points"))
+        map_id = data.get("map_id")
+    except ValueError as error:
+        return json_response(str(error), 400)
 
-        # 2. Creamos la nueva geocerca
+    if not nombre:
+        return json_response("Debes ingresar un nombre para la geocerca.", 400)
+
+    id_mapa_recibido = None
+    if map_id not in (None, "", 0, "0"):
+        try:
+            id_mapa_recibido = int(map_id)
+        except (TypeError, ValueError):
+            return json_response("El identificador del mapa no es válido.", 400)
+
+        mapa = Mapa.query.filter_by(id_mapa=id_mapa_recibido, id_usuario=user.id).first()
+        if not mapa:
+            return json_response("El mapa seleccionado no existe.", 404)
+
+    try:
         nueva_zona = Geocerca(
             id_usuario=user.id,
-            id_mapa=id_mapa_recibido, # --- CAMBIO 2: Asignarla a su mapa de inmediato ---
+            id_mapa=id_mapa_recibido,
             nombre_zona=nombre,
             coordenadas_json=json.dumps(puntos)
         )
 
-        # 3. Guardamos en la base de datos R2-D2
         db.session.add(nueva_zona)
         db.session.commit()
-        
-        # Actualizamos tu print para que también te avise en qué mapa se guardó
-        print(f"✅ Éxito: Geocerca '{nombre}' guardada en R2-D2 (Mapa ID: {id_mapa_recibido})")
-        return jsonify({"message": "Ok"}), 200
+        app.logger.info("Geocerca guardada: %s", nombre)
+        return json_response("Geocerca guardada correctamente.", 200, zone_id=nueva_zona.id_geocerca)
 
-    except Exception as e:
-        db.session.rollback() # Por si algo falla, deshacemos el intento
-        print(f"❌ Error en SQLAlchemy: {str(e)}")
-        # Ahora el error real viajará hasta tu navegador
-        return jsonify({"message": str(e)}), 500
+    except Exception:
+        db.session.rollback()
+        app.logger.exception("Error al guardar geocerca.")
+        return json_response("No se pudo guardar la geocerca.", 500)
 
 # RUTA AL PERFIL 
 @app.route("/profile")
 def profile():
-    user_email = session.get('user_email')
-    user_name = session.get('user_name')
-
-    if not user_email:
+    user, auth_error = get_authenticated_user()
+    if auth_error:
         return redirect(url_for('home'))
-
-    user = User.query.filter_by(email=user_email).first()
 
     if user:
         mis_zonas = Geocerca.query.filter_by(id_usuario=user.id).all()
-        # --- NUEVO: Consultamos los mapas ---
         mis_mapas = Mapa.query.filter_by(id_usuario=user.id).all() 
     else:
         mis_zonas = []
-        mis_mapas = [] # Lista vacía si no hay
+        mis_mapas = []
 
     return render_template('profile.html', 
-                           email_html=user_email, 
-                           nombre_html=user_name,
+                           email_html=user.email, 
+                           nombre_html=build_user_display_name(user),
                            geocercas=mis_zonas,
-                           mapas=mis_mapas) # Pasamos los mapas a la plantilla
-# ----- ELIMINAR GEOCERCA -----------
-@app.route("/api/delete_zone/<int:id_zona>", methods=['POST'])
-def delete_zone(id_zona):
-    # 1. Verificamos quién está pidiendo borrar
-    user_email = session.get('user_email')
-    if not user_email:
-        return jsonify({"message": "Sesión no iniciada"}), 401
+                           mapas=mis_mapas)
+
+
+@app.route("/api/profile", methods=["POST"])
+def update_profile():
+    user, auth_error = get_authenticated_user()
+    if auth_error:
+        return auth_error
 
     try:
-        # 2. Buscamos al usuario
-        user = User.query.filter_by(email=user_email).first()
-        
-        # 3. Buscamos la geocerca. 
-        # IMPORTANTE: Filtramos también por id_usuario por seguridad, 
-        # para que nadie pueda borrar las zonas de otro usuario.
+        data = get_json_body()
+    except ValueError as error:
+        return json_response(str(error), 400)
+
+    nombre = normalize_text(data.get("nombre"))
+    apellido_paterno = normalize_text(data.get("apellido_paterno"))
+    apellido_materno = normalize_text(data.get("apellido_materno"))
+    telefono = normalize_text(data.get("telefono"))
+
+    if not nombre or not apellido_paterno or not telefono:
+        return json_response("Nombre, apellido paterno y teléfono son obligatorios.", 400)
+
+    if len(nombre) > 100 or len(apellido_paterno) > 100 or len(apellido_materno) > 100:
+        return json_response("Alguno de los campos de nombre es demasiado largo.", 400)
+
+    if len(telefono) > 20:
+        return json_response("El teléfono no puede exceder 20 caracteres.", 400)
+
+    user.nombre = nombre
+    user.apellido_paterno = apellido_paterno
+    user.apellido_materno = apellido_materno
+    user.telefono = telefono
+    session["user_name"] = build_user_display_name(user)
+
+    try:
+        db.session.commit()
+        return json_response(
+            "Perfil actualizado correctamente.",
+            200,
+            profile={
+                "nombre": user.nombre,
+                "apellido_paterno": user.apellido_paterno,
+                "apellido_materno": user.apellido_materno or "",
+                "telefono": user.telefono,
+                "email": user.email,
+                "display_name": build_user_display_name(user),
+                "initials": build_user_initials(user),
+            },
+        )
+    except Exception:
+        db.session.rollback()
+        app.logger.exception("Error al actualizar perfil.")
+        return json_response("No se pudo actualizar el perfil.", 500)
+
+
+@app.route("/api/delete_zone/<int:id_zona>", methods=['POST'])
+def delete_zone(id_zona):
+    user, auth_error = get_authenticated_user()
+    if auth_error:
+        return auth_error
+
+    try:
         zona = Geocerca.query.filter_by(id_geocerca=id_zona, id_usuario=user.id).first()
         
         if not zona:
-            return jsonify({"message": "Geocerca no encontrada"}), 404
+            return json_response("La geocerca no existe o ya fue eliminada.", 404)
 
-        # 4. Ejecutamos el DELETE en la base de datos
         db.session.delete(zona)
         db.session.commit()
-        
-        print(f"🗑️ Éxito: Geocerca ID {id_zona} eliminada de la base de datos.")
-        return jsonify({"message": "Eliminada correctamente"}), 200
+        app.logger.info("Geocerca eliminada: %s", id_zona)
+        return json_response("Geocerca eliminada correctamente.", 200)
 
-    except Exception as e:
-        db.session.rollback() # Si algo falla, cancelamos la transacción
-        print(f"❌ Error al eliminar: {str(e)}")
-        return jsonify({"message": str(e)}), 500
+    except Exception:
+        db.session.rollback()
+        app.logger.exception("Error al eliminar geocerca.")
+        return json_response("No se pudo eliminar la geocerca.", 500)
+
+
+@app.route("/api/delete_map/<int:id_mapa>", methods=['POST'])
+def delete_map(id_mapa):
+    user, auth_error = get_authenticated_user()
+    if auth_error:
+        return auth_error
+
+    try:
+        mapa = Mapa.query.filter_by(id_mapa=id_mapa, id_usuario=user.id).first()
+        if not mapa:
+            return json_response("El mapa no existe o ya fue eliminado.", 404)
+
+        for zona in mapa.geocercas:
+            zona.id_mapa = None
+
+        db.session.delete(mapa)
+        db.session.commit()
+        app.logger.info("Mapa eliminado: %s", id_mapa)
+        return json_response("Mapa eliminado correctamente.", 200)
+    except Exception:
+        db.session.rollback()
+        app.logger.exception("Error al eliminar mapa.")
+        return json_response("No se pudo eliminar el mapa.", 500)
     
 
 # ----- RUTAS DE MAPAS (ARTURO) -----------
 @app.route("/api/get_next_map_name", methods=['GET'])
 def get_next_map_name():
-    user_email = session.get('user_email')
-    if not user_email:
-        return jsonify({"error": "No auth"}), 401
-        
-    user = User.query.filter_by(email=user_email).first()
-    if not user:
-        return jsonify({"error": "User not found"}), 404
-        
-    # Contamos cuántos mapas tiene el usuario en la base de datos
+    user, auth_error = get_authenticated_user()
+    if auth_error:
+        return auth_error
+
     cantidad_mapas = Mapa.query.filter_by(id_usuario=user.id).count()
     siguiente_nombre = f"Mapa {cantidad_mapas + 1}"
     
@@ -343,59 +576,55 @@ def get_next_map_name():
 
 @app.route("/api/save_map", methods=['POST'])
 def save_map():
-    user_email = session.get('user_email')
-    if not user_email:
-        return jsonify({"message": "Sesión no iniciada"}), 401
-        
-    user = User.query.filter_by(email=user_email).first()
-    if not user:
-        return jsonify({"message": "Usuario no encontrado"}), 404
+    user, auth_error = get_authenticated_user()
+    if auth_error:
+        return auth_error
 
-    data = request.get_json()
-    map_id = data.get('map_id') # Viene null la primera vez, y con número las siguientes
-    name = data.get('name')
+    try:
+        data = get_json_body()
+    except ValueError as error:
+        return json_response(str(error), 400)
+
+    map_id = data.get('map_id')
+    name = normalize_text(data.get('name'))
+
+    if not name:
+        return json_response("El mapa debe tener un nombre.", 400)
 
     try:
         if not map_id:
-            # 1. Crear nuevo mapa si no existía
             nuevo_mapa = Mapa(id_usuario=user.id, nombre_mapa=name)
             db.session.add(nuevo_mapa)
-            db.session.flush() # Obtenemos el ID temporalmente antes del commit
+            db.session.flush()
             map_id = nuevo_mapa.id_mapa
         else:
-            # 2. Actualizar el nombre si el mapa ya existía
             mapa_existente = Mapa.query.filter_by(id_mapa=map_id, id_usuario=user.id).first()
-            if mapa_existente:
-                mapa_existente.nombre_mapa = name
+            if not mapa_existente:
+                return json_response("El mapa que intentas actualizar no existe.", 404)
+            mapa_existente.nombre_mapa = name
 
-        # 3. La Magia: Buscar todas las geocercas sueltas de este usuario (id_mapa = None)
-        # y vincularlas oficialmente a este mapa. 
         zonas_sueltas = Geocerca.query.filter_by(id_usuario=user.id, id_mapa=None).all()
         for zona in zonas_sueltas:
             zona.id_mapa = map_id
 
-        # Guardamos todos los cambios juntos en SQL Server
         db.session.commit()
-        return jsonify({"message": "Ok", "new_map_id": map_id}), 200
+        return json_response("Mapa guardado correctamente.", 200, new_map_id=map_id)
 
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        print(f"❌ Error al guardar el mapa: {str(e)}")
-        return jsonify({"message": str(e)}), 500
+        app.logger.exception("Error al guardar mapa.")
+        return json_response("No se pudo guardar el mapa.", 500)
     
 @app.route("/api/get_map_zones/<int:id_mapa>", methods=['GET'])
 def get_map_zones(id_mapa):
-    import json # Aseguramos que json esté cargado
-    
-    user_email = session.get('user_email')
-    if not user_email:
-        return jsonify({"message": "No autorizado"}), 401
-    
-    user = User.query.filter_by(email=user_email).first()
+    user, auth_error = get_authenticated_user()
+    if auth_error:
+        return auth_error
+
     mapa = Mapa.query.filter_by(id_mapa=id_mapa, id_usuario=user.id).first()
     
     if not mapa:
-        return jsonify({"message": "Mapa no encontrado"}), 404
+        return json_response("Mapa no encontrado.", 404)
     
     zonas_data = []
     # Sacamos todas las geocercas que pertenecen a este mapa
@@ -411,4 +640,8 @@ def get_map_zones(id_mapa):
     }), 200
 # --- ESTO SIEMPRE DEBE IR HASTA EL FINAL DEL ARCHIVO ---
 if __name__ == "__main__":
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    if os.getenv("AUTO_CREATE_TABLES") == "1":
+        with app.app_context():
+            db.create_all()
+    port = int(os.getenv("PORT", "5000"))
+    socketio.run(app, host='0.0.0.0', port=port, debug=True)
